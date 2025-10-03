@@ -6,8 +6,22 @@ import numpy as np
 import cupy as cp
 import numba as nb
 import numba.cuda
-import rasterio
+import rasterio.warp
 import PIL.Image
+
+
+FEET_PER_METER = 3.28084
+
+
+def disk(radius):
+    radius = int(np.ceil(radius))
+    width = 2 * radius + 1
+    bigx, bigy = np.meshgrid(np.arange(10 * width), np.arange(10 * width))
+    x = bigx / 10 - radius - 0.5
+    y = bigy / 10 - radius - 0.5
+    disk = x**2 + y**2 <= radius**2
+    small_disk = np.sum(np.sum(disk.reshape((width, 10, width, 10)), axis=-1), axis=-2)
+    return small_disk / np.sum(small_disk)
 
 
 def line_in_disk(angle, *, linelength=15, radius=50, linewidth=1):
@@ -89,10 +103,10 @@ INV8 = 1 / 8
 
 
 @nb.jit(parallel=True)
-def best_fit(convolutions):
-    A = np.empty_like(convolutions[0])
-    B = np.empty_like(convolutions[0])
-    C = np.empty_like(convolutions[0])
+def sinusoidal(convolutions):
+    A = np.empty(convolutions[0].shape, dtype=np.float32)
+    B = np.empty(convolutions[0].shape, dtype=np.float32)
+    C = np.empty(convolutions[0].shape, dtype=np.float32)
 
     for i in nb.prange(convolutions[0].shape[0]):
         for j in nb.prange(convolutions[0].shape[1]):
@@ -141,23 +155,64 @@ def best_fit(convolutions):
     return A, B, C
 
 
+def write_geotiff(array, arrayname, name, crs, transform):
+    with rasterio.open(
+        DIRECTORY / "derived" / arrayname / f"{name}-{arrayname}.tif",
+        "w",
+        driver="GTiff",
+        height=array.shape[0],
+        width=array.shape[1],
+        count=1,
+        dtype=array.dtype,
+        crs=crs,
+        transform=transform,
+    ) as file:
+        file.write(array, 1)
+
+
 if __name__ == "__main__":
-    DIRECTORY = pathlib.Path("/net/projects2/spun-hyper/oaec-found-gullies/")
-    JOBID = int(os.environ["SLURM_ARRAY_TASK_ID"])
+    DIRECTORY = pathlib.Path("/net/projects2/spun-hyper/oaec-found-gully/")
+    TASK_ID = int(os.environ["SLURM_ARRAY_TASK_ID"])
 
     filenames = sorted((DIRECTORY / "bare-earth-hydroflattened-2022").glob("*.tif"))
-    filename = filenames[JOBID]
+    filename = filenames[TASK_ID]
     assert filename.name.endswith("_HYDROFLATTENED_BARE_EARTH.tif")
     name = filename.name[:-30]
 
     print(f"BEGIN {name}")
 
-    with rasterio.open(filenames[JOBID]) as file:
+    print("read 2022 elevation")
+    with rasterio.open(filenames[TASK_ID]) as file:
         elevation = file.read(1)
         transform = file.transform
         crs = file.crs
 
+    print("read 2013 elevation to get a mask")
+    with rasterio.open(
+        DIRECTORY / "bare-earth-hydroflattened-2013" / f"{name}_HYDROFLATTENED_BARE_EARTH.tif"
+    ) as file:
+        tmp_original = file.read(1)
+        tmp_mask = tmp_original != -9999.0
+        tmp_shrunk_mask = convolve2d(tmp_mask, disk(55 * FEET_PER_METER / 2))
+
+        mask = np.empty(elevation.shape, dtype=np.float32)
+        rasterio.warp.reproject(
+            source=tmp_shrunk_mask,
+            destination=mask,
+            src_transform=file.transform,
+            src_crs=file.crs,
+            dst_transform=transform,
+            dst_crs=crs,
+            resampling=rasterio.warp.Resampling.bilinear,
+        )
+        mask = 1 - mask < 1e-5
+
+        del tmp_original
+        del tmp_mask
+        del tmp_shrunk_mask
+
     angles = np.arange(0, 180, 11.25)
+    kernels5 = [line_in_disk(angle, linelength=5) for angle in angles]
     kernels15 = [line_in_disk(angle, linelength=15) for angle in angles]
 
     convolutions15 = [None] * len(angles)
@@ -165,15 +220,89 @@ if __name__ == "__main__":
         print(f"{index:02d} convolve2d for linelength=15 {angle=}")
         convolutions15[index] = convolve2d(elevation, kernel)
 
+    print("computing min15 and max15")
     min15 = np.full(elevation.shape, np.inf, dtype=np.float32)
+    max15 = np.full(elevation.shape, -np.inf, dtype=np.float32)
     for convolution in convolutions15:
         np.minimum(min15, convolution, out=min15)
+        np.maximum(max15, convolution, out=max15)
+
+    print("writing min15 and max15")
+    min15[~mask] = np.nan
+    write_geotiff(min15, "min15", name, crs, transform)
 
     print("writing for-hand-labeling PNG")
     MIN = -10
+    min15[~mask] = 0
     for_hand_labeling = (np.maximum(MIN, np.minimum(0, min15)) - MIN) / (0 - MIN)
     PIL.Image.fromarray((255 * for_hand_labeling).astype(np.uint8)).save(
         DIRECTORY / "for-hand-labeling" / f"{name}.png"
     )
+
+    del min15
+
+    max15[~mask] = np.nan
+    write_geotiff(max15, "max15", name, crs, transform)
+    del max15
+
+    print("computing low15, highlow15, and angle15")
+    A, B, C = sinusoidal(convolutions15)
+    del convolutions15
+    hypot = np.sqrt(B**2 + C**2)
+    low15 = A - hypot
+    highlow15 = (A + hypot) - low15
+    angle15 = ((3/4)*np.pi - (1/2)*np.arctan2(C, B)) * (180 / np.pi) % 360
+    del hypot
+
+    print("writing low15, highlow15, and angle15")
+    low15[~mask] = np.nan
+    write_geotiff(low15, "low15", name, crs, transform)
+    del low15
+
+    highlow15[~mask] = np.nan
+    write_geotiff(highlow15, "highlow15", name, crs, transform)
+    del highlow15
+
+    angle15[~mask] = np.nan
+    write_geotiff(angle15, "angle15", name, crs, transform)
+    del angle15
+
+    convolutions5 = [None] * len(angles)
+    for index, (angle, kernel) in enumerate(zip(angles, kernels5)):
+        print(f"{index:02d} convolve2d for linelength=5 {angle=}")
+        convolutions5[index] = convolve2d(elevation, kernel)
+
+    print("computing min5 and max5")
+    min5 = np.full(elevation.shape, np.inf, dtype=np.float32)
+    max5 = np.full(elevation.shape, -np.inf, dtype=np.float32)
+    for convolution in convolutions5:
+        np.minimum(min5, convolution, out=min5)
+        np.maximum(max5, convolution, out=max5)
+
+    print("writing min5 and max5")
+    min5[~mask] = np.nan
+    write_geotiff(min5, "min5", name, crs, transform)
+    del min5
+
+    max5[~mask] = np.nan
+    write_geotiff(max5, "max5", name, crs, transform)
+    del max5
+
+    print("computing low5 and highlow5")
+    A, B, C = sinusoidal(convolutions5)
+    del convolutions5
+    hypot = np.sqrt(B**2 + C**2)
+    low5 = A - hypot
+    highlow5 = (A + hypot) - low5
+    del hypot
+
+    print("writing low5 and highlow5")
+    low5[~mask] = np.nan
+    write_geotiff(low5, "low5", name, crs, transform)
+    del low5
+
+    highlow5[~mask] = np.nan
+    write_geotiff(highlow5, "highlow5", name, crs, transform)
+    del highlow5
 
     print(f"END {name}")
