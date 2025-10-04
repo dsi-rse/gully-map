@@ -2,7 +2,8 @@
 
 #SBATCH -p general
 #SBATCH --gres=gpu:1
-#SBATCH --mem=80G
+#SBATCH --mem=100G
+#SBATCH --cpus-per-task=1
 #SBATCH --array=0-138
 #SBATCH --output=/net/projects2/spun-hyper/oaec-found-gully/logs/find_gullies-%A-%a.out
 
