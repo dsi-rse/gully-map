@@ -35,6 +35,39 @@ from affine import Affine
 FEET_PER_METER = 3.28084
 
 
+def point_in_disk(radius: float = 50, linewidth: float = 1) -> np.ndarray:
+    """
+    Generate a convolution kernel for a dot symmetrically placed within a disk.
+    The kernel is designed to reduce absolute elevation to local changes within 50 pixels.
+
+    Parameters:
+        radius (float): Radius of the disk (default: 50).
+        linewidth (float): Width of the line (default: 1).
+
+    Returns:
+        np.ndarray: 2D array kernel.
+    """
+    # compute size of high-resolution "big" grid for anti-aliasing
+    width = 2 * radius + 1
+    bigx, bigy = np.meshgrid(np.arange(10 * width), np.arange(10 * width))
+    x = bigx / 10 - radius - 0.5
+    y = bigy / 10 - radius - 0.5
+
+    # build the shape in large scale
+    disk = x**2 + y**2 <= radius**2
+    minidisk = x**2 + y**2 <= linewidth**2
+
+    # downsample, build the output, and return
+    small_disk = np.sum(np.sum(disk.reshape((width, 10, width, 10)), axis=-1), axis=-2)
+    small_minidisk = np.sum(
+        np.sum(minidisk.reshape((width, 10, width, 10)), axis=-1), axis=-2
+    )
+    small_disk[small_minidisk > 0] = 0
+    small_disk = -small_disk / np.sum(small_disk)
+    small_disk[small_minidisk > 0] = 1 / np.sum(small_minidisk > 0)
+    return small_disk
+
+
 def line_in_disk(
     angle: float, *, linelength: float = 15, radius: float = 50, linewidth: float = 1
 ) -> np.ndarray:
@@ -304,8 +337,9 @@ def logistic(x: float | np.ndarray) -> float | np.ndarray:
 
 
 if __name__ == "__main__":
-    # task configuration
-    DIRECTORY = pathlib.Path("/net/projects2/spun-hyper/oaec-found-gully/")
+    # task configuration; exactly one argument is required
+    (DIRECTORY,) = sys.argv[1:]
+    DIRECTORY = pathlib.Path(DIRECTORY)
     TASK_ID = int(os.environ["SLURM_ARRAY_TASK_ID"])
 
     filenames = sorted((DIRECTORY / "bare-earth-hydroflattened-2022").glob("*.tif"))
@@ -330,6 +364,7 @@ if __name__ == "__main__":
         crs = file.crs
 
     logger.info("patch missing (out of county) data in 2022 elevation")
+    mask2022 = abs(elevation) < 1e30  # True for valid pixels
     elevation2022 = patch_with_nearest(elevation2022)
 
     # prepare convolution kernels
@@ -429,6 +464,7 @@ if __name__ == "__main__":
             resampling=rasterio.warp.Resampling.bilinear,
         )
         mask = mask > 0.5  # True for valid pixels
+        mask &= mask2022  # both years must be valid
 
         del tmp_original
         del tmp_mask
@@ -444,8 +480,10 @@ if __name__ == "__main__":
         "blockysize": 1024,
     }
 
-    logger.info("writing elevation difference")
-    elevdiff = elevation2022 - elevation2013
+    logger.info("writing local elevation difference")
+    local_elevation2022 = convolve2d(elevation2022, point_in_disk())
+    local_elevation2013 = convolve2d(elevation2013, point_in_disk())
+    elevdiff = local_elevation2022 - local_elevation2013
     elevdiff[~mask] = np.nan
     os.makedirs(DIRECTORY / "gully-pass0", exist_ok=True)
     with rasterio.open(
