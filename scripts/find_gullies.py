@@ -363,8 +363,8 @@ if __name__ == "__main__":
         transform = file.transform
         crs = file.crs
 
-    logger.info("patch missing (out of county) data in 2022 elevation")
-    mask2022 = abs(elevation) < 1e30  # True for valid pixels
+    logger.info("patch missing data in 2022 elevation")
+    mask2022 = abs(elevation2022) < 1e30  # True for valid pixels
     elevation2022 = patch_with_nearest(elevation2022)
 
     # prepare convolution kernels
