@@ -30,6 +30,7 @@ import numba.cuda
 import rasterio.warp
 import scipy.ndimage
 import PIL.Image
+from affine import Affine
 
 
 FEET_PER_METER = 3.28084
@@ -65,6 +66,35 @@ def line_in_disk(
     )
     centerline = minidisk * (disk & line)
     big = -(disk / np.sum(disk)) + (centerline / np.sum(centerline))
+    small = np.sum(np.sum(big.reshape((width, 10, width, 10)), axis=-1), axis=-2)
+    return small
+
+
+def half_disk(angle: float, radius: float = 50, linelength: float = 15) -> np.ndarray:
+    """
+    Generate a convolution kernel for a half-disk at a given angle.
+    The kernel is designed to be a veto against one-sided embankments, usually
+    along roads, rather than two-sided gullies.
+
+    Parameters:
+        angle (float): Angle in degrees.
+        radius (float): Radius of the disk (default: 50).
+        linelength (float): The decay scale of the center line (default: 15).
+
+    Returns:
+        np.ndarray: 2D array kernel.
+    """
+    width = 2 * radius + 1
+    bigx, bigy = np.meshgrid(np.arange(10 * width), np.arange(10 * width))
+    x = bigx / 10 - radius - 0.5
+    y = bigy / 10 - radius - 0.5
+    disk = np.exp(-(x**2 + y**2) / 2 / linelength**2) / np.sqrt(
+        2 * np.pi * linelength**2
+    )
+    line = x * np.sin(-angle * np.pi / 180) - y * np.cos(angle * np.pi / 180) < 0
+    positive = disk * line
+    negative = disk * ~line
+    big = positive / np.sum(positive) - negative / np.sum(negative)
     small = np.sum(np.sum(big.reshape((width, 10, width, 10)), axis=-1), axis=-2)
     return small
 
@@ -151,6 +181,41 @@ convolve2d._kernels = {}
 
 
 @nb.jit
+def minimum_disk(
+    convolutions15: list[np.ndarray],
+    convolutions_disk: np.ndarray,
+    index: int,
+    output: np.ndarray,
+) -> np.ndarray:
+    """
+    Fills an array of the convolutions_disk with the same angle as the minimum
+    convolutions15, pixel by pixel.
+
+    This function has to be applied cumulatively, since we can't fit all of the
+    convolutions15 and all of the convolutions_disks in memory at once.
+
+    Parameters:
+        convolutions15 (list[np.ndarray]): List of length-15 line convolutions, ordered by angle.
+        convolutions_disk (np.ndarray): Current half-disk convolution (for cumulative application).
+        index (int): Current index (for cumulative application).
+        output (np.ndarray): Array of results.
+
+    Returns:
+        None
+    """
+    for i in range(convolutions15[0].shape[0]):
+        for j in range(convolutions15[0].shape[1]):
+            min_15 = np.inf
+            min_k = 0
+            for k in range(16):
+                if convolutions15[k][i, j] < min_15:
+                    min_15 = convolutions15[k][i, j]
+                    min_k = k
+            if min_k == index:
+                output[i, j] = convolutions_disk[i, j]
+
+
+@nb.jit
 def sinusoidal(
     convolutions: list[np.ndarray],
 ) -> (np.ndarray, np.ndarray, np.ndarray):
@@ -222,34 +287,9 @@ def sinusoidal(
     return A, B, C
 
 
-def write_geotiff(
-    array: np.ndarray, arrayname: str, name: str, crs: Any, transform: Any
-) -> None:
-    """
-    Write a single-band array as a GeoTIFF to the 'derived' directory under the array's name.
-
-    Parameters:
-        array (np.ndarray): 2D array to write.
-        arrayname (str): Name for the subdirectory/category.
-        name (str): Prefix for the output file.
-        crs: Coordinate reference system (as understood by rasterio).
-        transform: Geo-transform for the dataset.
-
-    Returns:
-        None
-    """
-    with rasterio.open(
-        DIRECTORY / "derived" / arrayname / f"{name}-{arrayname}.tif",
-        "w",
-        driver="GTiff",
-        height=array.shape[0],
-        width=array.shape[1],
-        count=1,
-        dtype=array.dtype,
-        crs=crs,
-        transform=transform,
-    ) as file:
-        file.write(array, 1)
+def logistic(x: float | np.ndarray) -> float | np.ndarray:
+    "Logistic function: 1/(1 + exp(-x))"
+    return 1 / (1 + np.exp(-x))
 
 
 if __name__ == "__main__":
@@ -298,100 +338,133 @@ if __name__ == "__main__":
     angles = np.arange(0, 180, 11.25)
     kernels5 = [line_in_disk(angle, linelength=5) for angle in angles]
     kernels15 = [line_in_disk(angle, linelength=15) for angle in angles]
+    # rotated slightly so that only half of the horizontal are included at angle=0
+    # so convolution with half_disk(angle) == -1 * convolution with half_disk(angle + 180)
+    kernels_disk = [half_disk(angle + 1e-6) for angle in angles]
 
     convolutions15 = [None] * len(angles)
     for index, (angle, kernel) in enumerate(zip(angles.tolist(), kernels15)):
         print(f"{index:02d} convolve2d for linelength=15 {angle=}")
         convolutions15[index] = convolve2d(elevation, kernel)
 
-    print("computing min15 and max15")
+    mindisk = np.zeros_like(elevation)
+    for index, (angle, kernel) in enumerate(zip(angles.tolist(), kernels_disk)):
+        print(f"{index:02d} convolve2d for disk {angle=}")
+        convolutions_disk = convolve2d(elevation, kernel)
+        minimum_disk(convolutions15, convolutions_disk, index, mindisk)
+
+    print("computing min15")
     min15 = np.full(elevation.shape, np.inf, dtype=np.float32)
-    max15 = np.full(elevation.shape, -np.inf, dtype=np.float32)
     for convolution in convolutions15:
         np.minimum(min15, convolution, out=min15)
-        np.maximum(max15, convolution, out=max15)
-
-    print("writing min15")
-    min15[~mask] = np.nan
-    write_geotiff(min15, "min15", name, crs, transform)
-
-    print("writing for-hand-labeling PNG")
-    MIN = -10
-    min15[~mask] = MIN
-    for_hand_labeling = (np.maximum(MIN, np.minimum(0, min15)) - MIN) / (0 - MIN)
-    PIL.Image.fromarray((255 * for_hand_labeling).astype(np.uint8)).save(
-        DIRECTORY / "for-hand-labeling" / f"{name}.png"
-    )
-
-    del min15
-
-    print("writing max15")
-    max15[~mask] = np.nan
-    write_geotiff(max15, "max15", name, crs, transform)
-    del max15
-
-    print("computing sinusoidal fits")
-    A, B, C = sinusoidal(convolutions15)
-    del convolutions15
 
     print("computing low15, highlow15, and angle15")
+    A, B, C = sinusoidal(convolutions15)
+    del convolutions15
+    # if we ever want the angles, this is how to compute them:
+    #     angle15 = ((3 / 4) * np.pi - (1 / 2) * np.arctan2(C, B)) * (180 / np.pi)
     hypot = np.sqrt(B**2 + C**2)
+    del B, C
     low15 = A - hypot
-    highlow15 = (A + hypot) - low15
-    angle15 = ((3 / 4) * np.pi - (1 / 2) * np.arctan2(C, B)) * (180 / np.pi) - 45
-    del hypot
-
-    print("writing low15, highlow15, and angle15")
-    low15[~mask] = np.nan
-    write_geotiff(low15, "low15", name, crs, transform)
-    del low15
-
-    highlow15[~mask] = np.nan
-    write_geotiff(highlow15, "highlow15", name, crs, transform)
-    del highlow15
-
-    angle15[~mask] = np.nan
-    write_geotiff(angle15, "angle15", name, crs, transform)
-    del angle15
+    high15 = A + hypot
+    del A, hypot
 
     convolutions5 = [None] * len(angles)
     for index, (angle, kernel) in enumerate(zip(angles.tolist(), kernels5)):
         print(f"{index:02d} convolve2d for linelength=5 {angle=}")
         convolutions5[index] = convolve2d(elevation, kernel)
 
-    print("computing min5 and max5")
+    print("computing min5")
     min5 = np.full(elevation.shape, np.inf, dtype=np.float32)
-    max5 = np.full(elevation.shape, -np.inf, dtype=np.float32)
     for convolution in convolutions5:
         np.minimum(min5, convolution, out=min5)
-        np.maximum(max5, convolution, out=max5)
-
-    print("writing min5 and max5")
-    min5[~mask] = np.nan
-    write_geotiff(min5, "min5", name, crs, transform)
-    del min5
-
-    max5[~mask] = np.nan
-    write_geotiff(max5, "max5", name, crs, transform)
-    del max5
-
-    print("computing sinusoidal fits")
-    A, B, C = sinusoidal(convolutions5)
-    del convolutions5
 
     print("computing low5 and highlow5")
+    A, B, C = sinusoidal(convolutions5)
+    del convolutions5
     hypot = np.sqrt(B**2 + C**2)
+    del B, C
     low5 = A - hypot
-    highlow5 = (A + hypot) - low5
-    del hypot
+    high5 = A + hypot
+    del A, hypot
 
-    print("writing low5 and highlow5")
-    low5[~mask] = np.nan
-    write_geotiff(low5, "low5", name, crs, transform)
-    del low5
+    print("computing gully detector linear combination")
+    gully = logistic(
+        -9.800051565013556
+        + -3.1639324806178912 * (min15)
+        + -0.7209343186388889 * (low15 - min15)
+        + 1.9421691573124356 * (high15 - low15)
+        + 0.19531310261020537 * (min5 - min15)
+        + -0.2707981230014441 * (high5 - low5)
+        + 0.6326805610644737 * (low15 * (high15 - low15))
+        + -0.28814988058815305 * abs(mindisk)
+    )
+    gully_original = gully.copy()
+    gully[~mask] = np.nan
 
-    highlow5[~mask] = np.nan
-    write_geotiff(highlow5, "highlow5", name, crs, transform)
-    del highlow5
+    print("writing gully detection")
+    os.makedirs(DIRECTORY / "gully-pass1", exist_ok=True)
+    with rasterio.open(
+        DIRECTORY / "gully-pass1" / f"{name}-pass1.tif",
+        "w",
+        driver="GTiff",
+        height=gully.shape[0],
+        width=gully.shape[1],
+        count=1,
+        dtype=gully.dtype,
+        crs=crs,
+        transform=transform,
+    ) as file:
+        file.write(gully, 1)
+
+    print("scaling down and convolving gully image")
+    kernels_small = [line_in_disk(angle, radius=25, linelength=10) for angle in angles]
+    mask_small = scipy.ndimage.zoom(mask, 1 / 2, order=0)
+    gully_small = scipy.ndimage.zoom(gully_original, 1 / 2)
+    gully_convolved = np.zeros_like(gully_small)
+    for index, (angle, kernel) in enumerate(zip(angles.tolist(), kernels_small)):
+        print(f"{index:02d} convolve2d for radius=25 linelength=10 {angle=}")
+        np.maximum(
+            gully_convolved, convolve2d(gully_small, kernel), out=gully_convolved
+        )
+    gully_convolved[~mask_small] = np.nan
+
+    print("writing small, convolved gully detection")
+    os.makedirs(DIRECTORY / "gully-pass2", exist_ok=True)
+    with rasterio.open(
+        DIRECTORY / "gully-pass2" / f"{name}-pass2.tif",
+        "w",
+        driver="GTiff",
+        height=gully_convolved.shape[0],
+        width=gully_convolved.shape[1],
+        count=1,
+        dtype=gully_convolved.dtype,
+        crs=crs,
+        transform=transform * Affine.scale(2),
+    ) as file:
+        file.write(gully_convolved, 1)
+
+    print("writing connected objects")
+    os.makedirs(DIRECTORY / "gully-pass3", exist_ok=True)
+    all8corners = scipy.ndimage.generate_binary_structure(2, 2)
+    connected1, _ = scipy.ndimage.label(gully_convolved > 0.01, all8corners)
+    connected2, _ = scipy.ndimage.label(gully_convolved > 0.02, all8corners)
+    connected4, _ = scipy.ndimage.label(gully_convolved > 0.04, all8corners)
+    connected8, _ = scipy.ndimage.label(gully_convolved > 0.08, all8corners)
+    for percent, connected in zip(
+        [1, 2, 4, 8], [connected1, connected2, connected4, connected8]
+    ):
+        with rasterio.open(
+            DIRECTORY / "gully-pass3" / f"{name}-pass3-{percent}.tif",
+            "w",
+            driver="GTiff",
+            height=connected.shape[0],
+            width=connected.shape[1],
+            count=1,
+            dtype=connected.dtype,
+            crs=crs,
+            transform=transform * Affine.scale(2),
+        ) as file:
+            file.write(connected, 1)
 
     print(f"END {name}")
