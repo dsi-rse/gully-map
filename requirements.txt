@@ -1,0 +1,8 @@
+cupy
+numba
+numba-cuda
+numpy
+pillow
+rasterio
+scipy
+affine
