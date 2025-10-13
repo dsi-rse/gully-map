@@ -573,7 +573,7 @@ if __name__ == "__main__":
             file.write(connected, 1)
 
     logger.info("writing skeletonized graph results")
-    edges = skeletonize(gully_convolved > 0.01)  # uint8 with 0 meaning no node
+    edges = skeletonize(gully_convolved, 0.01)  # uint8 with 0 meaning no node
     with rasterio.open(
         DIRECTORY / "gully-pass3" / f"{name}-pass3-graph.tif",
         "w",
