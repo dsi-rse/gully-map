@@ -25,12 +25,12 @@ import scipy.optimize
 
 # bitmasks for 8-connected neighborhood directions
 connected_NW = np.uint8(0b00000001)
-connected_N = np.uint8(0b00000010)
+connected_N  = np.uint8(0b00000010)
 connected_NE = np.uint8(0b00000100)
-connected_E = np.uint8(0b00001000)
-connected_W = np.uint8(0b00010000)
+connected_W  = np.uint8(0b00001000)
+connected_E  = np.uint8(0b00010000)
 connected_SW = np.uint8(0b00100000)
-connected_S = np.uint8(0b01000000)
+connected_S  = np.uint8(0b01000000)
 connected_SE = np.uint8(0b10000000)
 
 
@@ -418,18 +418,27 @@ def skeletonize_impl(
         )
 
 
-def skeletonize(bitmap: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+def skeletonize(priority: np.ndarray, threshold: float) -> np.ndarray:
     """
     Skeletonize (thin) a boolean raster image, preserving topology.
 
     Args:
-        bitmap: 2D numpy array, dtype=bool
+        priority: 2D numpy array to skeletonize; low values are removed first
+        threshold: minimum priority to include in the graph at all; should be > 0
 
     Returns:
-        nodes: thinned boolean skeleton
-        edges: corresponding 8-bit neighbor connectivity mask for skeleton
+        edges: uint8 neighbor connectivity; `0` means no node at all, bitmasks of
+            the following indicate which neighbors each node has:
+                * 00000001 (  1) has a NW neighbor (i - 1, j - 1)
+                * 00000010 (  2) has a N neighbor  (i - 1, j    )
+                * 00000100 (  4) has a NE neighbor (i - 1, j + 1)
+                * 00001000 (  8) has a W neighbor  (i    , j - 1)
+                * 00010000 ( 16) has a E neighbor  (i    , j + 1)
+                * 00100000 ( 32) has a SW neighbor (i + 1, j - 1)
+                * 01000000 ( 64) has a S neighbor  (i + 1, j    )
+                * 10000000 (128) has a SE neighbor (i + 1, j + 1)
     """
-    nodes = bitmap.copy()
+    nodes = priority[priority > threshold]
     edges = edges_from_nodes(nodes)
 
     # indices of all True elements
@@ -438,7 +447,7 @@ def skeletonize(bitmap: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     j_index = j_index[nodes]
 
     # for prioritizing thinning order
-    increasing_probability = np.argsort(bitmap[i_index, j_index])
+    increasing_probability = np.argsort(priority[i_index, j_index])
     i_index = i_index[increasing_probability]
     j_index = j_index[increasing_probability]
 
@@ -466,4 +475,4 @@ def skeletonize(bitmap: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         i_index,
         j_index,
     )
-    return nodes, edges
+    return edges

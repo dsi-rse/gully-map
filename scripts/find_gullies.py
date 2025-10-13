@@ -572,4 +572,17 @@ if __name__ == "__main__":
         ) as file:
             file.write(connected, 1)
 
+    logger.info("writing skeletonized graph results")
+    edges = skeletonize(gully_convolved > 0.01)  # uint8 with 0 meaning no node
+    with rasterio.open(
+        DIRECTORY / "gully-pass3" / f"{name}-pass3-graph.tif",
+        "w",
+        height=edges.shape[0],
+        width=edges.shape[1],
+        dtype=edges.dtype,
+        transform=transform * Affine.scale(2),
+        **WRITE_OPTIONS,
+    ) as file:
+        file.write(edges, 1)
+
     logger.info(f"END {name}")
