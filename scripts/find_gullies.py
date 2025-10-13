@@ -31,6 +31,8 @@ import rasterio.warp
 import scipy.ndimage
 from affine import Affine
 
+from oaec_found_gully.skeletonization import skeletonize
+
 
 FEET_PER_METER = 3.28084
 
