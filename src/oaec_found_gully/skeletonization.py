@@ -438,7 +438,7 @@ def skeletonize(priority: np.ndarray, threshold: float) -> np.ndarray:
                 * 01000000 ( 64) has a S neighbor  (i + 1, j    )
                 * 10000000 (128) has a SE neighbor (i + 1, j + 1)
     """
-    nodes = priority[priority > threshold]
+    nodes = priority > threshold
     edges = edges_from_nodes(nodes)
 
     # indices of all True elements
