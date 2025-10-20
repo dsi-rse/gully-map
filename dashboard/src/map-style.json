@@ -51,6 +51,10 @@
       "tiles": ["https://wayback.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/WMTS/1.0.0/default028mm/MapServer/tile/45134/{z}/{y}/{x}"],
       "minzoom": 12,
       "maxzoom": 20
+    },
+    "parcels": {
+      "type": "vector",
+      "url": "pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/sonoma-county-parcels.pmtiles"
     }
   },
   "sprite": "https://nst-guide.github.io/osm-liberty-topo/sprites/osm-liberty-topo",
@@ -2252,6 +2256,24 @@
       "type": "raster",
       "source": "aerial_2021",
       "paint": {"raster-opacity": 0}
+    },
+    {
+      "id": "parcels",
+      "source": "parcels",
+      "source-layer": "parcels",
+      "type": "line",
+      "paint": {"line-color": "#ffae00", "line-width": 2, "line-opacity": 0.5},
+      "minzoom": 14,
+      "layout": {"visibility": "none"}
+    },
+    {
+      "id": "parcels-filled",
+      "source": "parcels",
+      "source-layer": "parcels",
+      "type": "fill",
+      "paint": {"fill-opacity": 0},
+      "minzoom": 14,
+      "layout": {"visibility": "visible"}
     }
   ],
   "id": "osm-liberty-modified"
