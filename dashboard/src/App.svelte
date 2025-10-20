@@ -38,26 +38,45 @@
     };
   });
 
-  let map;
+  let map = null;
   function handleOnLoad(theMap) {
     map = theMap;
   }
 
   function toggleBaselayer(layer) {
-    if (layer == "basic") {
-      map.setPaintProperty("aerial_2013", "raster-opacity", 0);
-      map.setPaintProperty("aerial_2021", "raster-opacity", 0);
-      map.setPaintProperty("parcels", "line-opacity", 0.5);
+    if (map != null) {
+      if (layer == "basic") {
+        map.setLayoutProperty("aerial_2013", "visibility", "none");
+        map.setLayoutProperty("aerial_2021", "visibility", "none");
+        map.setPaintProperty("parcels", "line-opacity", 0.5);
+      }
+      else if (layer == "aerial_2013") {
+        map.setLayoutProperty("aerial_2013", "visibility", "visible");
+        map.setLayoutProperty("aerial_2021", "visibility", "none");
+        map.setPaintProperty("parcels", "line-opacity", 0.5);
+      }
+      else if (layer == "aerial_2022") {
+        map.setLayoutProperty("aerial_2013", "visibility", "none");
+        map.setLayoutProperty("aerial_2021", "visibility", "visible");
+        map.setPaintProperty("parcels", "line-opacity", 1);
+      }
     }
-    else if (layer == "aerial_2013") {
-      map.setPaintProperty("aerial_2013", "raster-opacity", 1);
-      map.setPaintProperty("aerial_2021", "raster-opacity", 0);
-      map.setPaintProperty("parcels", "line-opacity", 0.5);
-    }
-    else if (layer == "aerial_2022") {
-      map.setPaintProperty("aerial_2013", "raster-opacity", 0);
-      map.setPaintProperty("aerial_2021", "raster-opacity", 1);
-      map.setPaintProperty("parcels", "line-opacity", 1);
+  }
+
+  function toggleLadderLayer(layer) {
+    if (map != null) {
+      if (layer == "none") {
+        map.setLayoutProperty("ladder_fuels_4m", "visibility", "none");
+        map.setLayoutProperty("ladder_fuels_8m", "visibility", "none");
+      }
+      else if (layer == "4m") {
+        map.setLayoutProperty("ladder_fuels_4m", "visibility", "visible");
+        map.setLayoutProperty("ladder_fuels_8m", "visibility", "none");
+      }
+      else if (layer == "8m") {
+        map.setLayoutProperty("ladder_fuels_4m", "visibility", "none");
+        map.setLayoutProperty("ladder_fuels_8m", "visibility", "visible");
+      }
     }
   }
 
@@ -118,20 +137,20 @@ ${f.type}; ${f.description}`;
       <div class="group">
         <div>
           <label><input type="radio" name="baselayer" id="baselayer_basic" checked on:change={
-                (e) => toggleBaselayer("basic")
-            }> Basic topographic map</label> (<a href="https://github.com/nst-guide/osm-liberty-topo">from here</a>)
+              (e) => toggleBaselayer("basic")
+          }> Basic topographic map</label> (<a href="https://github.com/nst-guide/osm-liberty-topo">from here</a>)
         </div>
         <div>
           <label for="baselayer_aerial_2013" class="disabled"><input type="radio" name="baselayer" id="baselayer_aerial_2013" disabled on:change={
-                (e) => toggleBaselayer("aerial_2013")
-            }> 2013 aerial photography</label>
+              (e) => toggleBaselayer("aerial_2013")
+          }> 2013 aerial photography</label>
           (<a href="https://www.arcgis.com/apps/mapviewer/index.html?url=https://socogis.sonomacounty.ca.gov/image/rest/services/Rasters/Ortho_SoCo_SonomaVeg_2013_WM/ImageServer&source=sd">Sonoma GIS</a>,
           <a href="https://www.arcgis.com/home/item.html?id=a5fc12e9c4324663bafde942a7d1e1d3">through Esri</a>)
         </div>
         <div>
           <label for="baselayer_aerial_2021" class="disabled"><input type="radio" name="baselayer" id="baselayer_aerial_2021" disabled on:change={
-                (e) => toggleBaselayer("aerial_2022")
-            }> 2021 aerial photography</label>
+              (e) => toggleBaselayer("aerial_2022")
+          }> 2021 aerial photography</label>
           (<a href="https://gis.sonomacounty.ca.gov/datasets/dc026cbfb9884d51a65dae1846bf76a5/explore?location=38.472153%2C-122.943650%2C10.18">Sonoma GIS</a>,
           <a href="https://www.arcgis.com/home/item.html?id=0c361a688a5a453487021132c878e870">through Esri</a>)
         </div>
@@ -146,6 +165,26 @@ ${f.type}; ${f.description}`;
       <div class="group">
         <div style="margin-left: 11px;">Last clicked in:</div>
         <div id="last_clicked_in" style="min-height: 1em; margin: 5px; padding: 5px; border: 1px solid gray;"></div>
+      </div>
+      <div class="group">
+        <div>
+          <label><input type="radio" name="ladderlayer" id="ladderlayer_none" checked on:change={
+              (e) => toggleLadderLayer("none")
+          }> Hide ladder fuel proxies</label>
+        </div>
+        <div>
+          <label for="ladderlayer_4m"><input type="radio" name="ladderlayer" id="ladderlayer_4m" on:change={
+              (e) => toggleLadderLayer("4m")
+          }> (material in 1‒4 m) / (material in 0‒4 m)</label>
+        </div>
+        <div>
+          <label for="ladderlayer_8m"><input type="radio" name="ladderlayer" id="ladderlayer_8m" on:change={
+              (e) => toggleLadderLayer("8m")
+          }> (material in 1‒8 m) / (material in 0‒8 m)</label>
+        </div>
+        <div>
+           (See page 9 of <a href="https://tukmangeospatial.egnyte.com/dl/ADWSBBL7ac">LIDAR derivaties</a>)
+        </div>
       </div>
     </div>
   </div>

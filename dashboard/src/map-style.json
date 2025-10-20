@@ -55,6 +55,18 @@
     "parcels": {
       "type": "vector",
       "url": "pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/sonoma-county-parcels.pmtiles"
+    },
+    "ladder_fuels_4m": {
+      "type": "raster",
+      "tiles": ["pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/sonoma-county-ladder-fuels-4m.pmtiles/{z}/{x}/{y}"],
+      "tileSize": 512,
+      "maxzoom": 13
+    },
+    "ladder_fuels_8m": {
+      "type": "raster",
+      "tiles": ["pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/sonoma-county-ladder-fuels-8m.pmtiles/{z}/{x}/{y}"],
+      "tileSize": 512,
+      "maxzoom": 13
     }
   },
   "sprite": "https://nst-guide.github.io/osm-liberty-topo/sprites/osm-liberty-topo",
@@ -2249,13 +2261,13 @@
       "id": "aerial_2013",
       "type": "raster",
       "source": "aerial_2013",
-      "paint": {"raster-opacity": 0}
+      "layout": {"visibility": "none"}
     },
     {
       "id": "aerial_2021",
       "type": "raster",
       "source": "aerial_2021",
-      "paint": {"raster-opacity": 0}
+      "layout": {"visibility": "none"}
     },
     {
       "id": "parcels",
@@ -2274,6 +2286,20 @@
       "paint": {"fill-opacity": 0},
       "minzoom": 14,
       "layout": {"visibility": "visible"}
+    },
+    {
+      "id": "ladder_fuels_4m",
+      "source": "ladder_fuels_4m",
+      "type": "raster",
+      "paint": {"raster-resampling": "nearest"},
+      "layout": {"visibility": "none"}
+    },
+    {
+      "id": "ladder_fuels_8m",
+      "source": "ladder_fuels_8m",
+      "type": "raster",
+      "paint": {"raster-resampling": "nearest"},
+      "layout": {"visibility": "none"}
     }
   ],
   "id": "osm-liberty-modified"
