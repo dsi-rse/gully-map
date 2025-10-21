@@ -30,15 +30,15 @@ import scipy.ndimage
 
 
 def point_in_disk(
-    radius: float = 50, linewidth: float = 1, antialias_scale: float = 10
+    radius: float, linewidth: float, antialias_scale: float = 10
 ) -> np.ndarray:
     """
     Generate a convolution kernel for a dot symmetrically placed within a disk.
     The kernel is designed to reduce absolute elevation to local changes within 50 pixels.
 
     Parameters:
-        radius (float): Radius of the disk in pixels (default: 50).
-        linewidth (float): Width of the line in pixels (default: 1).
+        radius (float): Radius of the disk in pixels.
+        linewidth (float): Width of the line in pixels.
         antialias_scale (float): Scale factor used for anti-aliasing.
 
     Returns:
@@ -106,10 +106,9 @@ def antialiased_kernel(make_shape: Callable, radius: int, antialias_scale: float
 
 def line_in_disk(
     angle: float,
-    *,
-    linelength: float = 15,
-    radius: float = 50,
-    linewidth: float = 1,
+    linelength: float,
+    radius: float,
+    linewidth: float,
     antialias_scale: float = 10
 ) -> np.ndarray:
     """
@@ -118,9 +117,9 @@ def line_in_disk(
 
     Parameters:
         angle (float): Angle in degrees.
-        linelength (float): The decay scale of the center line in pixels (default: 15).
-        radius (float): Radius of the disk in pixels (default: 50).
-        linewidth (float): Width of the line in pixels (default: 1).
+        linelength (float): The decay scale of the center line in pixels.
+        radius (float): Radius of the disk in pixels.
+        linewidth (float): Width of the line in pixels.
         antialias_scale (float): Scale factor used for anti-aliasing.
 
     Returns:
@@ -144,8 +143,8 @@ def line_in_disk(
 
 def half_disk(
     angle: float,
-    radius: float = 50,
-    linelength: float = 15,
+    radius: float,
+    linelength: float,
     antialias_scale: float = 10,
 ) -> np.ndarray:
     """
@@ -155,8 +154,8 @@ def half_disk(
 
     Parameters:
         angle (float): Angle in degrees.
-        radius (float): Radius of the disk in pixels (default: 50).
-        linelength (float): The decay scale of the center line in pixels (default: 15).
+        radius (float): Radius of the disk in pixels.
+        linelength (float): The decay scale of the center line in pixels.
         antialias_scale (float): Scale factor used for anti-aliasing.
 
     Returns:

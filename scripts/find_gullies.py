@@ -113,11 +113,17 @@ if __name__ == "__main__":
 
     # prepare convolution kernels
     angles = np.arange(0, 180, 11.25)
-    kernels5 = [line_in_disk(angle, linelength=5) for angle in angles]
-    kernels15 = [line_in_disk(angle, linelength=15) for angle in angles]
+    kernels5 = [
+        line_in_disk(angle, linelength=5, radius=50, linewidth=1) for angle in angles
+    ]
+    kernels15 = [
+        line_in_disk(angle, linelength=15, radius=50, linewidth=1) for angle in angles
+    ]
     # rotated slightly so that only half of the horizontal are included at angle=0
     # so convolution with half_disk(angle) == -1 * convolution with half_disk(angle + 180)
-    kernels_disk = [half_disk(angle + 1e-6) for angle in angles]
+    kernels_disk = [
+        half_disk(angle + 1e-6, radius=50, linelength=15) for angle in angles
+    ]
 
     # convolutions with the 15-pixel line_in_disk kernels, one for each angle
     convolutions15 = [None] * len(angles)
@@ -210,8 +216,9 @@ if __name__ == "__main__":
         del tmp_mask
 
     logger.info("writing local elevation difference")
-    local_elevation2022 = convolve2d(elevation2022, point_in_disk())
-    local_elevation2013 = convolve2d(elevation2013, point_in_disk())
+    point_kernel = point_in_disk(radius=50, linewidth=1)
+    local_elevation2022 = convolve2d(elevation2022, point_kernel)
+    local_elevation2013 = convolve2d(elevation2013, point_kernel)
     elevdiff = local_elevation2022 - local_elevation2013
     elevdiff[~mask] = np.nan
     os.makedirs(DIRECTORY / "gully-pass0", exist_ok=True)
@@ -254,7 +261,9 @@ if __name__ == "__main__":
         file.write(gully, 1)
 
     logger.info("scaling down and convolving gully image")
-    kernels_small = [line_in_disk(angle, radius=25, linelength=10) for angle in angles]
+    kernels_small = [
+        line_in_disk(angle, linelength=10, radius=25, linewidth=1) for angle in angles
+    ]
     mask_small = scipy.ndimage.zoom(mask, 1 / 2, order=0)
     gully_small = scipy.ndimage.zoom(gully_original, 1 / 2)
     gully_convolved = np.zeros_like(gully_small)
