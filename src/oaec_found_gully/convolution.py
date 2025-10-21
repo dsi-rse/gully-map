@@ -109,7 +109,7 @@ def line_in_disk(
     linelength: float,
     radius: float,
     linewidth: float,
-    antialias_scale: float = 10
+    antialias_scale: float = 10,
 ) -> np.ndarray:
     """
     Generate a convolution kernel for a line at a given angle within a disk, with a given line length and width.

@@ -17,20 +17,16 @@ Functions:
 """
 
 import numpy as np
-import matplotlib.pyplot as plt
 import numba as nb
-import rasterio
-import scipy.ndimage
-import scipy.optimize
 
 # bitmasks for 8-connected neighborhood directions
 connected_NW = np.uint8(0b00000001)
-connected_N  = np.uint8(0b00000010)
+connected_N = np.uint8(0b00000010)
 connected_NE = np.uint8(0b00000100)
-connected_W  = np.uint8(0b00001000)
-connected_E  = np.uint8(0b00010000)
+connected_W = np.uint8(0b00001000)
+connected_E = np.uint8(0b00010000)
 connected_SW = np.uint8(0b00100000)
-connected_S  = np.uint8(0b01000000)
+connected_S = np.uint8(0b01000000)
 connected_SE = np.uint8(0b10000000)
 
 
