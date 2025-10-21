@@ -262,17 +262,20 @@ if __name__ == "__main__":
         file.write(gully, 1)
 
     logger.info("scaling down and convolving gully image")
+    # scale down the images by a factor of 2 in each dimension
+    mask_small = scipy.ndimage.zoom(mask, 1 / 2, order=0)
+    gully_small = scipy.ndimage.zoom(gully_original, 1 / 2)
+    # then apply a convolution with smaller parameters for smoothing
     kernels_small = [
         line_in_disk(angle, linelength=10, radius=25, linewidth=1) for angle in angles
     ]
-    mask_small = scipy.ndimage.zoom(mask, 1 / 2, order=0)
-    gully_small = scipy.ndimage.zoom(gully_original, 1 / 2)
     gully_convolved = np.zeros_like(gully_small)
     for index, (angle, kernel) in enumerate(zip(angles.tolist(), kernels_small)):
         logger.info(f"{index:02d} convolve2d for radius=25 linelength=10 {angle=}")
         np.maximum(
             gully_convolved, convolve2d(gully_small, kernel), out=gully_convolved
         )
+    # apply mask after scaling to avoid edge effects from mask
     gully_convolved[~mask_small] = np.nan
 
     logger.info("writing small, convolved gully detection")
