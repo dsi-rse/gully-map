@@ -164,7 +164,7 @@ if __name__ == "__main__":
         / f"{name}_HYDROFLATTENED_BARE_EARTH.tif"
     ) as file:
         tmp_original = file.read(1)
-        tmp_mask = (tmp_original != -9999.0).astype(np.float32)
+        tmp_mask = (tmp_original != file.nodata).astype(np.float32)
 
         # reproject to match the 2022 grid
         elevation2013 = np.empty(elevation2022.shape, dtype=tmp_original.dtype)
