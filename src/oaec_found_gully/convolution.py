@@ -26,7 +26,9 @@ import numpy as np
 import scipy.ndimage
 
 
-def point_in_disk(radius: float = 50, linewidth: float = 1) -> np.ndarray:
+def point_in_disk(
+    radius: float = 50, linewidth: float = 1, antialias_scale: float = 10
+) -> np.ndarray:
     """
     Generate a convolution kernel for a dot symmetrically placed within a disk.
     The kernel is designed to reduce absolute elevation to local changes within 50 pixels.
@@ -34,24 +36,33 @@ def point_in_disk(radius: float = 50, linewidth: float = 1) -> np.ndarray:
     Parameters:
         radius (float): Radius of the disk in pixels (default: 50).
         linewidth (float): Width of the line in pixels (default: 1).
+        antialias_scale (float): Scale factor used for anti-aliasing.
 
     Returns:
         np.ndarray: 2D array kernel.
     """
     # compute size of high-resolution "big" grid for anti-aliasing
     width = 2 * radius + 1
-    bigx, bigy = np.meshgrid(np.arange(10 * width), np.arange(10 * width))
-    x = bigx / 10 - radius - 0.5
-    y = bigy / 10 - radius - 0.5
+    bigx, bigy = np.meshgrid(
+        np.arange(antialias_scale * width), np.arange(antialias_scale * width)
+    )
+    x = bigx / antialias_scale - radius - 0.5
+    y = bigy / antialias_scale - radius - 0.5
 
     # build the shape in large scale
     disk = x**2 + y**2 <= radius**2
     minidisk = x**2 + y**2 <= linewidth**2
 
     # downsample, build the output, and return
-    small_disk = np.sum(np.sum(disk.reshape((width, 10, width, 10)), axis=-1), axis=-2)
+    small_disk = np.sum(
+        np.sum(disk.reshape((width, antialias_scale, width, antialias_scale)), axis=-1),
+        axis=-2,
+    )
     small_minidisk = np.sum(
-        np.sum(minidisk.reshape((width, 10, width, 10)), axis=-1), axis=-2
+        np.sum(
+            minidisk.reshape((width, antialias_scale, width, antialias_scale)), axis=-1
+        ),
+        axis=-2,
     )
     small_disk[small_minidisk > 0] = 0
     small_disk = -small_disk / np.sum(small_disk)
@@ -60,7 +71,12 @@ def point_in_disk(radius: float = 50, linewidth: float = 1) -> np.ndarray:
 
 
 def line_in_disk(
-    angle: float, *, linelength: float = 15, radius: float = 50, linewidth: float = 1
+    angle: float,
+    *,
+    linelength: float = 15,
+    radius: float = 50,
+    linewidth: float = 1,
+    antialias_scale: float = 10
 ) -> np.ndarray:
     """
     Generate a convolution kernel for a line at a given angle within a disk, with a given line length and width.
@@ -71,15 +87,18 @@ def line_in_disk(
         linelength (float): The decay scale of the center line in pixels (default: 15).
         radius (float): Radius of the disk in pixels (default: 50).
         linewidth (float): Width of the line in pixels (default: 1).
+        antialias_scale (float): Scale factor used for anti-aliasing.
 
     Returns:
         np.ndarray: 2D array kernel.
     """
     # compute size of high-resolution "big" grid for anti-aliasing
     width = 2 * radius + 1
-    bigx, bigy = np.meshgrid(np.arange(10 * width), np.arange(10 * width))
-    x = bigx / 10 - radius - 0.5
-    y = bigy / 10 - radius - 0.5
+    bigx, bigy = np.meshgrid(
+        np.arange(antialias_scale * width), np.arange(antialias_scale * width)
+    )
+    x = bigx / antialias_scale - radius - 0.5
+    y = bigy / antialias_scale - radius - 0.5
 
     # build the shape in large scale
     disk = x**2 + y**2 <= radius**2
@@ -94,10 +113,18 @@ def line_in_disk(
     big = -(disk / np.sum(disk)) + (centerline / np.sum(centerline))
 
     # downsample and return
-    return np.sum(np.sum(big.reshape((width, 10, width, 10)), axis=-1), axis=-2)
+    return np.sum(
+        np.sum(big.reshape((width, antialias_scale, width, antialias_scale)), axis=-1),
+        axis=-2,
+    )
 
 
-def half_disk(angle: float, radius: float = 50, linelength: float = 15) -> np.ndarray:
+def half_disk(
+    angle: float,
+    radius: float = 50,
+    linelength: float = 15,
+    antialias_scale: float = 10,
+) -> np.ndarray:
     """
     Generate a convolution kernel for a half-disk at a given angle.
     The kernel is designed to be a veto against one-sided embankments, usually
@@ -107,15 +134,18 @@ def half_disk(angle: float, radius: float = 50, linelength: float = 15) -> np.nd
         angle (float): Angle in degrees.
         radius (float): Radius of the disk in pixels (default: 50).
         linelength (float): The decay scale of the center line in pixels (default: 15).
+        antialias_scale (float): Scale factor used for anti-aliasing.
 
     Returns:
         np.ndarray: 2D array kernel.
     """
     # compute size of high-resolution "big" grid for anti-aliasing
     width = 2 * radius + 1
-    bigx, bigy = np.meshgrid(np.arange(10 * width), np.arange(10 * width))
-    x = bigx / 10 - radius - 0.5
-    y = bigy / 10 - radius - 0.5
+    bigx, bigy = np.meshgrid(
+        np.arange(antialias_scale * width), np.arange(antialias_scale * width)
+    )
+    x = bigx / antialias_scale - radius - 0.5
+    y = bigy / antialias_scale - radius - 0.5
 
     # build the shape in large scale
     disk = np.exp(-(x**2 + y**2) / 2 / linelength**2) / np.sqrt(
@@ -127,7 +157,10 @@ def half_disk(angle: float, radius: float = 50, linelength: float = 15) -> np.nd
     big = positive / np.sum(positive) - negative / np.sum(negative)
 
     # downsample and return
-    return np.sum(np.sum(big.reshape((width, 10, width, 10)), axis=-1), axis=-2)
+    return np.sum(
+        np.sum(big.reshape((width, antialias_scale, width, antialias_scale)), axis=-1),
+        axis=-2,
+    )
 
 
 def patch_with_nearest(elevation: np.ndarray) -> np.ndarray:
