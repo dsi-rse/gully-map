@@ -294,13 +294,10 @@ if __name__ == "__main__":
     logger.info("writing connected component clustering results")
     os.makedirs(DIRECTORY / "gully-pass3", exist_ok=True)
     all8corners = scipy.ndimage.generate_binary_structure(2, 2)
-    connected1, _ = scipy.ndimage.label(gully_convolved > 0.01, all8corners)
-    connected2, _ = scipy.ndimage.label(gully_convolved > 0.02, all8corners)
-    connected4, _ = scipy.ndimage.label(gully_convolved > 0.04, all8corners)
-    connected8, _ = scipy.ndimage.label(gully_convolved > 0.08, all8corners)
-    for percent, connected in zip(
-        [1, 2, 4, 8], [connected1, connected2, connected4, connected8]
-    ):
+    for percent in [1, 2, 4, 8]:
+        cut = 0.01 * percent
+        connected, _ = scipy.ndimage.label(gully_convolved > cut, all8corners)
+
         with rasterio.open(
             DIRECTORY / "gully-pass3" / f"{name}-pass3-{percent}.tif",
             "w",
