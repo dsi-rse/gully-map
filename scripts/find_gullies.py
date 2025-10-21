@@ -54,7 +54,8 @@ from oaec_found_gully.convolution import (
     half_disk,
     patch_with_nearest,
     convolve2d,
-    minimum_disk,
+    argmin_across_angles,
+    accumulate_at_argmin,
     sinusoidal,
 )
 from oaec_found_gully.skeletonization import skeletonize
@@ -112,13 +113,16 @@ if __name__ == "__main__":
         logger.info(f"{index:02d} convolve2d for linelength=15 {angle=}")
         convolutions15[index] = convolve2d(elevation2022, kernel)
 
+    # minimum angle index for each pixel
+    argmin_result = argmin_across_angles(tuple(convolutions15))
+
     # convolutions with the half_disk kernels, one for each angle
     # the half_disk corresponding to the minimum convolutions15 is accumulated with a minimum of memory use
     mindisk = np.zeros_like(elevation2022)
     for index, (angle, kernel) in enumerate(zip(angles.tolist(), kernels_disk)):
         logger.info(f"{index:02d} convolve2d for disk {angle=}")
         convolutions_disk = convolve2d(elevation2022, kernel)
-        minimum_disk(tuple(convolutions15), convolutions_disk, index, mindisk)
+        accumulate_at_argmin(argmin_result, convolutions_disk, index, mindisk)
 
     # strict minimum 15-pixel line_in_disk kernel
     logger.info("computing min15")

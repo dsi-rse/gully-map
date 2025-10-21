@@ -261,42 +261,64 @@ convolve2d._kernels = {}  # compiled function cache for the convolve2d function
 
 
 @nb.jit
-def minimum_disk(
-    convolutions15: Tuple[16, np.ndarray],
-    convolutions_disk: np.ndarray,
-    index: int,
-    output: np.ndarray,
-) -> np.ndarray:
+def argmin_across_angles(convolutions15: Tuple[16, np.ndarray]) -> np.ndarray:
     """
-    Fills an array of the convolutions_disk with the same angle as the minimum
-    convolutions15, pixel by pixel, for each of the 16 images.
+    Returns the index of the input array with the minimum value at each pixel.
 
-    This function has to be applied cumulatively, since we can't fit all of the
-    convolutions15 and all of the convolutions_disks in memory at once.
+    For each pixel position, finds which of the 16 input 2D arrays has the smallest
+    value and returns a new 2D array of indices in the range 0..15.
 
-    Parameters:
-        convolutions15 (list[np.ndarray]): List of length-15 line convolutions, ordered by angle.
-        convolutions_disk (np.ndarray): Current half-disk convolution (for cumulative application).
-        index (int): Current index (for cumulative application).
-        output (np.ndarray): Array of results.
+    Args:
+        convolutions15 (Tuple[16, np.ndarray]): Sequence of sixteen 2D numpy arrays
+            (all the same shape), e.g., responses at 16 angles.
 
     Returns:
-        None
+        np.ndarray: 2D array of int64, same shape as input arrays, where each entry
+        is the index (0..15) of the array with the minimum value at that pixel.
     """
     assert len(convolutions15) == 16
+
+    output = np.zeros(convolutions15[0].shape, dtype=np.int64)
 
     # for each pixel
     for i in range(convolutions15[0].shape[0]):
         for j in range(convolutions15[0].shape[1]):
-            # find which array in the convolutions15 list has the minimum value at that pixel
+            # find which array in the convolutions15 has the minimum value at this pixel
             min_15 = np.inf
             min_k = 0
             for k in range(16):
                 if convolutions15[k][i, j] < min_15:
                     min_15 = convolutions15[k][i, j]
                     min_k = k
-            # and save this convolutions_disk's pixel if we're considering that index
-            if min_k == index:
+            output[i, j] = min_k
+
+    return output
+
+
+@nb.jit
+def accumulate_at_argmin(
+    argmin_result: np.ndarray,
+    convolutions_disk: np.ndarray,
+    index: int,
+    output: np.ndarray,
+):
+    """
+    Copies values from convolutions_disk to output where argmin_result equals index.
+
+    For each pixel, if the value in argmin_result is equal to the given index,
+    copies the corresponding value from convolutions_disk into output.
+
+    Args:
+        argmin_result (np.ndarray): 2D int64 array, contains indices from `argmin_across_angles`.
+        convolutions_disk (np.ndarray): 2D float array of values to conditionally copy.
+        index (int): Index to match in argmin_result.
+        output (np.ndarray): 2D float array (same shape) modified in-place.
+    """
+    # for each pixel
+    for i in range(argmin_result.shape[0]):
+        for j in range(argmin_result.shape[1]):
+            # save this convolutions_disk's pixel if we're considering that index
+            if argmin_result[i, j] == index:
                 output[i, j] = convolutions_disk[i, j]
 
 
