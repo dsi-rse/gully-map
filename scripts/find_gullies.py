@@ -234,6 +234,7 @@ if __name__ == "__main__":
         file.write(elevdiff, 1)
 
     logger.info("computing gully detector linear combination")
+    # fit parameters derived in https://github.com/uchicago-dsi/oaec-found-gully/pull/6#issuecomment-3384023049
     gully = logistic(
         -9.800051565013556
         + -3.1639324806178912 * (min15)
