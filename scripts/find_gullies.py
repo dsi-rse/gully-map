@@ -118,7 +118,7 @@ if __name__ == "__main__":
     for index, (angle, kernel) in enumerate(zip(angles.tolist(), kernels_disk)):
         logger.info(f"{index:02d} convolve2d for disk {angle=}")
         convolutions_disk = convolve2d(elevation2022, kernel)
-        minimum_disk(convolutions15, convolutions_disk, index, mindisk)
+        minimum_disk(tuple(convolutions15), convolutions_disk, index, mindisk)
 
     # strict minimum 15-pixel line_in_disk kernel
     logger.info("computing min15")
@@ -128,7 +128,7 @@ if __name__ == "__main__":
 
     # best-fit to a sinusoidal dependence on angle
     logger.info("computing low15, highlow15, and angle15")
-    A, B, C = sinusoidal(convolutions15)
+    A, B, C = sinusoidal(tuple(convolutions15))
     del convolutions15
     # if we ever want the angles, this is how to compute them:
     #     angle15 = ((3 / 4) * np.pi - (1 / 2) * np.arctan2(C, B)) * (180 / np.pi)
@@ -152,7 +152,7 @@ if __name__ == "__main__":
 
     # best-fit to a sinusoidal dependence on angle
     logger.info("computing low5 and highlow5")
-    A, B, C = sinusoidal(convolutions5)
+    A, B, C = sinusoidal(tuple(convolutions5))
     del convolutions5
     hypot = np.sqrt(B**2 + C**2)
     del B, C

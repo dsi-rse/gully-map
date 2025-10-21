@@ -20,6 +20,7 @@ detection in terrain analysis pipelines.
 """
 
 from collections.abc import Callable
+from typing import Tuple
 
 import cupy as cp
 import numba as nb
@@ -261,14 +262,14 @@ convolve2d._kernels = {}  # compiled function cache for the convolve2d function
 
 @nb.jit
 def minimum_disk(
-    convolutions15: list[np.ndarray],
+    convolutions15: Tuple[16, np.ndarray],
     convolutions_disk: np.ndarray,
     index: int,
     output: np.ndarray,
 ) -> np.ndarray:
     """
     Fills an array of the convolutions_disk with the same angle as the minimum
-    convolutions15, pixel by pixel.
+    convolutions15, pixel by pixel, for each of the 16 images.
 
     This function has to be applied cumulatively, since we can't fit all of the
     convolutions15 and all of the convolutions_disks in memory at once.
@@ -282,6 +283,8 @@ def minimum_disk(
     Returns:
         None
     """
+    assert len(convolutions15) == 16
+
     # for each pixel
     for i in range(convolutions15[0].shape[0]):
         for j in range(convolutions15[0].shape[1]):
@@ -299,19 +302,21 @@ def minimum_disk(
 
 @nb.jit
 def sinusoidal(
-    convolutions: list[np.ndarray],
+    convolutions: Tuple[16, np.ndarray],
 ) -> (np.ndarray, np.ndarray, np.ndarray):
     """
     Fit a sinusoidal function (with constant, sine, and cosine terms) to the responses from
     convolving an image with exactly 16 uniformly spaced values from 0 up to but not including π.
 
     Parameters:
-        Convolutions (List[np.ndarray]): List of response images, ordered by angle.
+        Convolutions (List[np.ndarray]): List of response 16 images, ordered by angle.
 
     Returns:
         Tuple[np.ndarray, np.ndarray, np.ndarray]: Arrays of the fitted constant (A),
             sine (B), and cosine (C) terms per pixel.
     """
+    assert len(convolutions) == 16
+
     SIN_PI_8 = np.sin(np.pi / 8)
     COS_PI_8 = np.cos(np.pi / 8)
     SQRT1_2 = np.sqrt(1 / 2)
