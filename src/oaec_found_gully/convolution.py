@@ -326,15 +326,19 @@ def sinusoidal(
     convolutions: Tuple[16, np.ndarray],
 ) -> (np.ndarray, np.ndarray, np.ndarray):
     """
-    Fit a sinusoidal function (with constant, sine, and cosine terms) to the responses from
-    convolving an image with exactly 16 uniformly spaced values from 0 up to but not including π.
+    Fit the double-angle first harmonic per pixel from 16 orientation responses.
 
-    Parameters:
-        Convolutions (List[np.ndarray]): List of response 16 images, ordered by angle.
+    Given 16 images sampled at orientations θ_k = k·π/16 for k=0..15 (i.e., uniform in [0, π)),
+    this computes the least-squares coefficients A, B, C of
 
-    Returns:
-        Tuple[np.ndarray, np.ndarray, np.ndarray]: Arrays of the fitted constant (A),
-            sine (B), and cosine (C) terms per pixel.
+        y(θ) ≈ A + B·sin(2θ) + C·cos(2θ)
+
+    using the discrete projections
+        A = (1/16) Σ_k y_k,
+        B = (1/8)  Σ_k y_k·sin(2θ_k),
+        C = (1/8)  Σ_k y_k·cos(2θ_k).
+
+    Returns three arrays (A, B, C) of the same shape as the inputs.
     """
     assert len(convolutions) == 16
 
