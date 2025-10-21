@@ -32,8 +32,8 @@ def point_in_disk(radius: float = 50, linewidth: float = 1) -> np.ndarray:
     The kernel is designed to reduce absolute elevation to local changes within 50 pixels.
 
     Parameters:
-        radius (float): Radius of the disk (default: 50).
-        linewidth (float): Width of the line (default: 1).
+        radius (float): Radius of the disk in pixels (default: 50).
+        linewidth (float): Width of the line in pixels (default: 1).
 
     Returns:
         np.ndarray: 2D array kernel.
@@ -68,9 +68,9 @@ def line_in_disk(
 
     Parameters:
         angle (float): Angle in degrees.
-        linelength (float): The decay scale of the center line (default: 15).
-        radius (float): Radius of the disk (default: 50).
-        linewidth (float): Width of the line (default: 1).
+        linelength (float): The decay scale of the center line in pixels (default: 15).
+        radius (float): Radius of the disk in pixels (default: 50).
+        linewidth (float): Width of the line in pixels (default: 1).
 
     Returns:
         np.ndarray: 2D array kernel.
@@ -105,8 +105,8 @@ def half_disk(angle: float, radius: float = 50, linelength: float = 15) -> np.nd
 
     Parameters:
         angle (float): Angle in degrees.
-        radius (float): Radius of the disk (default: 50).
-        linelength (float): The decay scale of the center line (default: 15).
+        radius (float): Radius of the disk in pixels (default: 50).
+        linelength (float): The decay scale of the center line in pixels (default: 15).
 
     Returns:
         np.ndarray: 2D array kernel.
