@@ -211,6 +211,9 @@ def convolve2d(image: np.ndarray, kernel: np.ndarray) -> np.ndarray:
     kernel = cp.asarray(kernel, dtype=np.float32)
     output = cp.zeros_like(image)
 
+    assert image.shape[0] > kernel.shape[0]
+    assert image.shape[1] > kernel.shape[1]
+
     # compile or reuse Numba CUDA kernel for a hard-coded size
     key = (image.shape, kernel.shape)
     if key not in convolve2d._kernels:
