@@ -154,6 +154,7 @@ if __name__ == "__main__":
     # best-fit to a sinusoidal dependence on angle
     logger.info("computing low5 and highlow5")
     low5, high5 = low_high(*sinusoidal(tuple(convolutions5)))
+
     del convolutions5
 
     logger.info("read 2013 elevation for 9-year differences and the watershed mask")
