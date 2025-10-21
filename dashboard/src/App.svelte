@@ -9,7 +9,6 @@
   maplibregl.addProtocol("pmtiles", protocol.tile);
 
   let leftWidth = 0.65 * window.innerWidth;
-
   let dragging = false;
 
   function startDrag(e: MouseEvent) {
@@ -184,7 +183,7 @@ ${f.type}; ${f.description}`;
           }> (material in 1‒8 m) / (material in 0‒8 m)</label>
         </div>
         <div>
-           (See page 9 of <a href="https://tukmangeospatial.egnyte.com/dl/ADWSBBL7ac">LIDAR derivaties</a>)
+           (See page 9 of <a href="https://tukmangeospatial.egnyte.com/dl/ADWSBBL7ac">LIDAR derivatives</a>)
         </div>
       </div>
     </div>
