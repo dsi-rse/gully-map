@@ -63,6 +63,17 @@ from oaec_found_gully.skeletonization import skeletonize
 
 FEET_PER_METER = 3.28084
 
+# write options that are common to all output files
+WRITE_OPTIONS = {
+    "driver": "GTiff",
+    "count": 1,
+    "crs": crs,
+    "compress": "LZW",
+    "tiled": True,
+    "blockxsize": 1024,
+    "blockysize": 1024,
+}
+
 
 def logistic(x: float | np.ndarray) -> float | np.ndarray:
     "Logistic function: 1/(1 + exp(-x))"
@@ -197,17 +208,6 @@ if __name__ == "__main__":
 
         del tmp_original
         del tmp_mask
-
-    # write options that are common to all output files
-    WRITE_OPTIONS = {
-        "driver": "GTiff",
-        "count": 1,
-        "crs": crs,
-        "compress": "LZW",
-        "tiled": True,
-        "blockxsize": 1024,
-        "blockysize": 1024,
-    }
 
     logger.info("writing local elevation difference")
     local_elevation2022 = convolve2d(elevation2022, point_in_disk())
