@@ -1,259 +1,89 @@
 """
-Geospatial DEM (Digital Elevation Model) Feature Extraction and Analysis
+Gully Extraction Pipeline for Elevation Data Tiles
 
-This module processes hydro-flattened bare-earth elevation data (GeoTIFF DEM files) to compute
-multi-scale, multi-directional terrain features such as minima, maxima, and directional statistics.
-It applies custom directional convolution kernels to the DEM using GPU acceleration, synthesizes
-sinusoidal fits across angles, fills missing data, and writes derived products as GeoTIFFs and PNGs
-for further analysis and hand-labeling.
+This script processes high-resolution hydroflattened bare-earth elevation raster tiles
+from two different years (2013 and 2022) to detect potential gully erosion features.
+Processing is performed on a per-tile basis and supports parallel array jobs, where the
+tile is selected via `SLURM_ARRAY_TASK_ID`.
 
-Main components:
-- Construction of line-shaped convolution kernels at multiple angles and scales.
-- 2D convolution on GPU with boundary reflection using Numba and CuPy.
-- Patch-filling of missing elevation values using nearest neighbors.
-- Computation of minimum, maximum, and fitted sinusoidal (Fourier-like) statistics over orientations.
-- Saving of processed outputs and derived statistics as georeferenced raster products.
+Major steps performed:
 
-This script is intended to be run as part of a SLURM array job, processing one DEM tile per task,
-and expects a specific directory structure and file-naming convention.
+1. **Data Preparation:**
+   - Loads target (2022) and reference (2013) elevation rasters for a specific tile.
+   - Reprojects 2013 data and masks to align with the 2022 grid.
+   - Patches missing elevation values.
+
+2. **Multi-Scale Convolution Feature Extraction:**
+   - Applies a range of oriented line and disk convolution kernels at two scales (5 and 15 px).
+   - Combines multi-angle responses to extract statistics (e.g., min, sinusoidal fit).
+   - Computes local elevation differences between years.
+
+3. **Gully Likelihood Estimation:**
+   - Produces a pixelwise gully detection score via a logistic regression linear combination
+     of multi-scale convolutional features.
+
+4. **Multi-Resolution and Post-Processing:**
+   - Downsamples and smooths the gully likelihood to create a coarser probability map.
+   - Identifies connected components (clusters) at several score thresholds.
+   - Skeletonizes the final gully probability map to extract linear gully structures.
+
+5. **Output:**
+   - Writes rasters at each stage (elevation difference, gully probability, convolved images,
+     clusters, skeleton) to output subfolders.
+
+**Intended usage:**
+    sbatch find_gullies.sh
+
+The script is designed to run in a SLURM array job environment and expects environment
+variable SLURM_ARRAY_TASK_ID to index the current raster tile.
 """
 
+import logging
 import os
-import math
 import pathlib
-from typing import Any
+import sys
 
 import numpy as np
-import cupy as cp
-import numba as nb
-import numba.cuda
 import rasterio.warp
 import scipy.ndimage
-import PIL.Image
+from affine import Affine
 
+from oaec_found_gully.convolution import (
+    point_in_disk,
+    line_in_disk,
+    half_disk,
+    patch_with_nearest,
+    convolve2d,
+    argmin_across_angles,
+    accumulate_at_argmin,
+    sinusoidal,
+    low_high,
+)
+from oaec_found_gully.skeletonization import skeletonize
 
 FEET_PER_METER = 3.28084
 
-
-def line_in_disk(
-    angle: float, *, linelength: float = 15, radius: float = 50, linewidth: float = 1
-) -> np.ndarray:
-    """
-    Generate a convolution kernel for a line at a given angle within a disk, with a given line length and width.
-    The kernel is designed to enhance linear features in the direction of `angle`.
-
-    Parameters:
-        angle (float): Angle in degrees.
-        linelength (float): The decay scale of the center line (default: 15).
-        radius (float): Radius of the disk (default: 50).
-        linewidth (float): Width of the line (default: 1).
-
-    Returns:
-        np.ndarray: 2D array kernel.
-    """
-    width = 2 * radius + 1
-    bigx, bigy = np.meshgrid(np.arange(10 * width), np.arange(10 * width))
-    x = bigx / 10 - radius - 0.5
-    y = bigy / 10 - radius - 0.5
-    disk = x**2 + y**2 <= radius**2
-    minidisk = np.exp(-(x**2 + y**2) / 2 / linelength**2) / np.sqrt(
-        2 * np.pi * linelength**2
-    )
-    line = (
-        np.abs(x * np.sin(-angle * np.pi / 180) - y * np.cos(angle * np.pi / 180))
-        < linewidth
-    )
-    centerline = minidisk * (disk & line)
-    big = -(disk / np.sum(disk)) + (centerline / np.sum(centerline))
-    small = np.sum(np.sum(big.reshape((width, 10, width, 10)), axis=-1), axis=-2)
-    return small
+# write options that are common to all output files
+WRITE_OPTIONS = {
+    "driver": "GTiff",
+    "count": 1,
+    "crs": crs,
+    "compress": "LZW",
+    "tiled": True,
+    "blockxsize": 1024,
+    "blockysize": 1024,
+}
 
 
-def patch_with_nearest(elevation: np.ndarray) -> np.ndarray:
-    """
-    Patch missing values in a DEM (represented by extremely large/small values)
-    by replacing them with the value of the nearest valid neighbor.
-
-    Parameters:
-        elevation (np.ndarray): 2D array of elevations with holes.
-
-    Returns:
-        np.ndarray: Elevation array with missing values filled.
-    """
-    missing = abs(elevation) > 1e30
-    indices = scipy.ndimage.distance_transform_edt(
-        missing, return_distances=False, return_indices=True
-    )
-    return elevation[tuple(indices)]
-
-
-def convolve2d(image: np.ndarray, kernel: np.ndarray) -> np.ndarray:
-    """
-    Perform 2D convolution using GPU acceleration (CuPy/Numba).
-    The implementation reflects boundaries.
-
-    Parameters:
-        image (np.ndarray): 2D input array.
-        kernel (np.ndarray): 2D kernel array.
-
-    Returns:
-        np.ndarray: 2D output array after convolution.
-    """
-    image = cp.asarray(image, dtype=np.float32)
-    kernel = cp.asarray(kernel, dtype=np.float32)
-    output = cp.zeros_like(image)
-
-    key = (image.shape, kernel.shape)
-    if key not in convolve2d._kernels:
-        imageI, imageJ = image.shape
-        kernelI, kernelJ = kernel.shape
-
-        @nb.cuda.jit
-        def fcn(image, kernel, output):
-            imi, imj = nb.cuda.grid(2)
-            if imi >= imageI or imj >= imageJ:
-                return
-
-            halfI = kernelI // 2
-            halfJ = kernelJ // 2
-
-            accumulate = 0
-            for ki in range(kernelI):
-                for kj in range(kernelJ):
-                    # boundary conditions that reflect
-                    i = abs(imi + ki - halfI)
-                    j = abs(imj + kj - halfJ)
-                    i = i if i < imageI else 2 * imageI - i - 1
-                    j = j if j < imageJ else 2 * imageJ - j - 1
-                    accumulate += image[i, j] * kernel[ki, kj]
-
-            output[imi, imj] = accumulate
-
-        convolve2d._kernels[key] = fcn
-
-    assert nb.cuda.get_current_device().MAX_THREADS_PER_BLOCK >= 1024
-    threadsperblock = (32, 32)
-    blockspergrid_i = int(np.ceil(image.shape[0] / threadsperblock[0]))
-    blockspergrid_j = int(np.ceil(image.shape[1] / threadsperblock[1]))
-    blockspergrid = (blockspergrid_i, blockspergrid_j)
-
-    convolve2d._kernels[key][blockspergrid, threadsperblock](image, kernel, output)
-
-    # if this were not a blocking call, the GPU's VRAM would be overloaded
-    out = output.get()
-    del image
-    del kernel
-    del output
-    return out
-
-
-convolve2d._kernels = {}
-
-
-@nb.jit
-def sinusoidal(
-    convolutions: list[np.ndarray],
-) -> (np.ndarray, np.ndarray, np.ndarray):
-    """
-    Fit a sinusoidal function (with constant, sine, and cosine terms) to the responses from
-    convolving an image with multiple directional kernels.
-
-    Parameters:
-        convolutions (list[np.ndarray]): List of response images, ordered by angle.
-
-    Returns:
-        Tuple[np.ndarray, np.ndarray, np.ndarray]: Arrays of the fitted constant (A),
-            sine (B), and cosine (C) terms per pixel.
-    """
-    SIN_PI_8 = np.sin(np.pi / 8)
-    COS_PI_8 = np.cos(np.pi / 8)
-    SQRT1_2 = np.sqrt(1 / 2)
-    INV16 = 1 / 16
-    INV8 = 1 / 8
-
-    A = np.empty(convolutions[0].shape, dtype=np.float32)
-    B = np.empty(convolutions[0].shape, dtype=np.float32)
-    C = np.empty(convolutions[0].shape, dtype=np.float32)
-
-    for i in range(convolutions[0].shape[0]):
-        for j in range(convolutions[0].shape[1]):
-            y0 = convolutions[0][i, j]
-            y1 = convolutions[1][i, j]
-            y2 = convolutions[2][i, j]
-            y3 = convolutions[3][i, j]
-            y4 = convolutions[4][i, j]
-            y5 = convolutions[5][i, j]
-            y6 = convolutions[6][i, j]
-            y7 = convolutions[7][i, j]
-            y8 = convolutions[8][i, j]
-            y9 = convolutions[9][i, j]
-            y10 = convolutions[10][i, j]
-            y11 = convolutions[11][i, j]
-            y12 = convolutions[12][i, j]
-            y13 = convolutions[13][i, j]
-            y14 = convolutions[14][i, j]
-            y15 = convolutions[15][i, j]
-
-            # Constant term is the mean
-            a = y0 + y1 + y2 + y3 + y4 + y5 + y6 + y7
-            a += y8 + y9 + y10 + y11 + y12 + y13 + y14 + y15
-            A[i, j] = INV16 * a
-
-            # Sine projection:
-            # sin(k*pi/8) over k=0..15 is:
-            # [0, s, m, c, 1, c, m, s, 0, -s, -m, -c, -1, -c, -m, -s]
-            t_s = (y1 + y7) - (y9 + y15)  # weights with ±sin(pi/8)
-            t_m = (y2 + y6) - (y10 + y14)  # weights with ±sqrt(1/2)
-            t_c = (y3 + y5) - (y11 + y13)  # weights with ±cos(pi/8)
-            t_1 = y4 - y12  # weights with ±1
-            S_sum = (SIN_PI_8 * t_s) + (SQRT1_2 * t_m) + (COS_PI_8 * t_c) + t_1
-            B[i, j] = INV8 * S_sum
-
-            # Cosine projection:
-            # cos(k*pi/8) over k=0..15 is:
-            # [1, c, m, s, 0, -s, -m, -c, -1, -c, -m, -s, 0,  s,  m,  c]
-            u_1 = y0 - y8  # weights with ±1
-            u_c = (y1 + y15) - (y7 + y9)  # weights with ±cos(pi/8)
-            u_m = (y2 + y14) - (y6 + y10)  # weights with ±sqrt(1/2)
-            u_s = (y3 + y13) - (y5 + y11)  # weights with ±sin(pi/8)
-            C_sum = u_1 + (COS_PI_8 * u_c) + (SQRT1_2 * u_m) + (SIN_PI_8 * u_s)
-            C[i, j] = INV8 * C_sum
-
-    return A, B, C
-
-
-def write_geotiff(
-    array: np.ndarray, arrayname: str, name: str, crs: Any, transform: Any
-) -> None:
-    """
-    Write a single-band array as a GeoTIFF to the 'derived' directory under the array's name.
-
-    Parameters:
-        array (np.ndarray): 2D array to write.
-        arrayname (str): Name for the subdirectory/category.
-        name (str): Prefix for the output file.
-        crs: Coordinate reference system (as understood by rasterio).
-        transform: Geo-transform for the dataset.
-
-    Returns:
-        None
-    """
-    with rasterio.open(
-        DIRECTORY / "derived" / arrayname / f"{name}-{arrayname}.tif",
-        "w",
-        driver="GTiff",
-        height=array.shape[0],
-        width=array.shape[1],
-        count=1,
-        dtype=array.dtype,
-        crs=crs,
-        transform=transform,
-    ) as file:
-        file.write(array, 1)
+def logistic(x: float | np.ndarray) -> float | np.ndarray:
+    "Logistic function: 1/(1 + exp(-x))"
+    return 1 / (1 + np.exp(-x))
 
 
 if __name__ == "__main__":
-    DIRECTORY = pathlib.Path("/net/projects2/spun-hyper/oaec-found-gully/")
+    # task configuration; exactly one argument is required
+    (DIRECTORY,) = sys.argv[1:]
+    DIRECTORY = pathlib.Path(DIRECTORY)
     TASK_ID = int(os.environ["SLURM_ARRAY_TASK_ID"])
 
     filenames = sorted((DIRECTORY / "bare-earth-hydroflattened-2022").glob("*.tif"))
@@ -261,26 +91,115 @@ if __name__ == "__main__":
     assert filename.name.endswith("_HYDROFLATTENED_BARE_EARTH.tif")
     name = filename.name[:-30]
 
-    print(f"BEGIN {name}")
+    # set up logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(message)s",
+        stream=sys.stdout,
+    )
+    logger = logging.getLogger(__name__)
 
-    print("read 2022 elevation")
+    logger.info(f"BEGIN {name}")
+
+    logger.info("read 2022 elevation")
     with rasterio.open(filenames[TASK_ID]) as file:
-        elevation = file.read(1)
+        elevation2022 = file.read(1)
         transform = file.transform
         crs = file.crs
 
-    elevation = patch_with_nearest(elevation)
+    logger.info("patch missing data in 2022 elevation")
+    mask2022 = abs(elevation2022) < 1e30  # True for valid pixels
+    elevation2022 = patch_with_nearest(elevation2022)
 
-    print("read 2013 elevation to get a mask")
+    # prepare convolution kernels
+    angles = np.arange(0, 180, 11.25)
+    kernels5 = [
+        line_in_disk(angle, linelength=5, radius=50, linewidth=1) for angle in angles
+    ]
+    kernels15 = [
+        line_in_disk(angle, linelength=15, radius=50, linewidth=1) for angle in angles
+    ]
+    # rotated slightly so that only half of the horizontal are included at angle=0
+    # so convolution with half_disk(angle) == -1 * convolution with half_disk(angle + 180)
+    kernels_disk = [
+        half_disk(angle + 1e-6, radius=50, linelength=15) for angle in angles
+    ]
+
+    # convolutions with the 15-pixel line_in_disk kernels, one for each angle
+    convolutions15 = [None] * len(angles)
+    for index, (angle, kernel) in enumerate(zip(angles.tolist(), kernels15)):
+        logger.info(f"{index:02d} convolve2d for linelength=15 {angle=}")
+        convolutions15[index] = convolve2d(elevation2022, kernel)
+
+    # minimum angle index for each pixel
+    argmin_result = argmin_across_angles(tuple(convolutions15))
+
+    # convolutions with the half_disk kernels, one for each angle
+    # the half_disk corresponding to the minimum convolutions15 is accumulated with a minimum of memory use
+    mindisk = np.zeros_like(elevation2022)
+    for index, (angle, kernel) in enumerate(zip(angles.tolist(), kernels_disk)):
+        logger.info(f"{index:02d} convolve2d for disk {angle=}")
+        convolutions_disk = convolve2d(elevation2022, kernel)
+        accumulate_at_argmin(argmin_result, convolutions_disk, index, mindisk)
+
+    # strict minimum 15-pixel line_in_disk kernel
+    logger.info("computing min15")
+    min15 = np.full(elevation2022.shape, np.inf, dtype=np.float32)
+    for convolution in convolutions15:
+        np.minimum(min15, convolution, out=min15)
+
+    # best-fit to a sinusoidal dependence on angle
+    logger.info("computing low15 and highlow15")
+    low15, high15 = low_high(*sinusoidal(tuple(convolutions15)))
+    # if we ever want the angles, this is how to compute them:
+    #     angle15 = ((3 / 4) * np.pi - (1 / 2) * np.arctan2(C, B)) * (180 / np.pi)
+
+    del convolutions15
+
+    # convolutions with the 5-pixel line_in_disk kernels, one for each angle
+    convolutions5 = [None] * len(angles)
+    for index, (angle, kernel) in enumerate(zip(angles.tolist(), kernels5)):
+        logger.info(f"{index:02d} convolve2d for linelength=5 {angle=}")
+        convolutions5[index] = convolve2d(elevation2022, kernel)
+
+    # strict minimum 5-pixel line_in_disk kernel
+    logger.info("computing min5")
+    min5 = np.full(elevation2022.shape, np.inf, dtype=np.float32)
+    for convolution in convolutions5:
+        np.minimum(min5, convolution, out=min5)
+
+    # best-fit to a sinusoidal dependence on angle
+    logger.info("computing low5 and highlow5")
+    low5, high5 = low_high(*sinusoidal(tuple(convolutions5)))
+
+    del convolutions5
+
+    logger.info("read 2013 elevation for 9-year differences and the watershed mask")
     with rasterio.open(
         DIRECTORY
         / "bare-earth-hydroflattened-2013"
         / f"{name}_HYDROFLATTENED_BARE_EARTH.tif"
     ) as file:
         tmp_original = file.read(1)
-        tmp_mask = (tmp_original != -9999.0).astype(np.float32)
+        tmp_mask = (tmp_original != file.nodata).astype(np.float32)
 
-        mask = np.empty(elevation.shape, dtype=np.float32)
+        # reproject to match the 2022 grid
+        elevation2013 = np.empty(elevation2022.shape, dtype=tmp_original.dtype)
+        rasterio.warp.reproject(
+            source=tmp_original,
+            destination=elevation2013,
+            src_transform=file.transform,
+            src_crs=file.crs,
+            dst_transform=transform,
+            dst_crs=crs,
+            resampling=rasterio.warp.Resampling.bilinear,
+            src_nodata=file.nodata,
+        )
+        # convert vertical elevation from feet to meters
+        elevation2013 /= FEET_PER_METER
+
+        # reproject the mask as well
+        mask = np.empty(elevation2022.shape, dtype=np.float32)
         rasterio.warp.reproject(
             source=tmp_mask,
             destination=mask,
@@ -290,108 +209,117 @@ if __name__ == "__main__":
             dst_crs=crs,
             resampling=rasterio.warp.Resampling.bilinear,
         )
-        mask = mask > 0.5
+        mask = mask > 0.5  # True for valid pixels
+        mask &= mask2022  # both years must be valid
 
         del tmp_original
         del tmp_mask
 
-    angles = np.arange(0, 180, 11.25)
-    kernels5 = [line_in_disk(angle, linelength=5) for angle in angles]
-    kernels15 = [line_in_disk(angle, linelength=15) for angle in angles]
+    logger.info("writing local elevation difference")
+    point_kernel = point_in_disk(radius=50, linewidth=1)
+    local_elevation2022 = convolve2d(elevation2022, point_kernel)
+    local_elevation2013 = convolve2d(elevation2013, point_kernel)
+    elevdiff = local_elevation2022 - local_elevation2013
+    elevdiff[~mask] = np.nan
+    os.makedirs(DIRECTORY / "gully-pass0", exist_ok=True)
+    with rasterio.open(
+        DIRECTORY / "gully-pass0" / f"{name}-elevdiff.tif",
+        "w",
+        height=elevdiff.shape[0],
+        width=elevdiff.shape[1],
+        dtype=elevdiff.dtype,
+        transform=transform,
+        **WRITE_OPTIONS,
+    ) as file:
+        file.write(elevdiff, 1)
 
-    convolutions15 = [None] * len(angles)
-    for index, (angle, kernel) in enumerate(zip(angles.tolist(), kernels15)):
-        print(f"{index:02d} convolve2d for linelength=15 {angle=}")
-        convolutions15[index] = convolve2d(elevation, kernel)
-
-    print("computing min15 and max15")
-    min15 = np.full(elevation.shape, np.inf, dtype=np.float32)
-    max15 = np.full(elevation.shape, -np.inf, dtype=np.float32)
-    for convolution in convolutions15:
-        np.minimum(min15, convolution, out=min15)
-        np.maximum(max15, convolution, out=max15)
-
-    print("writing min15")
-    min15[~mask] = np.nan
-    write_geotiff(min15, "min15", name, crs, transform)
-
-    print("writing for-hand-labeling PNG")
-    MIN = -10
-    min15[~mask] = MIN
-    for_hand_labeling = (np.maximum(MIN, np.minimum(0, min15)) - MIN) / (0 - MIN)
-    PIL.Image.fromarray((255 * for_hand_labeling).astype(np.uint8)).save(
-        DIRECTORY / "for-hand-labeling" / f"{name}.png"
+    logger.info("computing gully detector linear combination")
+    # fit parameters derived in https://github.com/uchicago-dsi/oaec-found-gully/pull/6#issuecomment-3384023049
+    gully = logistic(
+        -9.800051565013556
+        + -3.1639324806178912 * (min15)
+        + -0.7209343186388889 * (low15 - min15)
+        + 1.9421691573124356 * (high15 - low15)
+        + 0.19531310261020537 * (min5 - min15)
+        + -0.2707981230014441 * (high5 - low5)
+        + 0.6326805610644737 * (low15 * (high15 - low15))
+        + -0.28814988058815305 * abs(mindisk)
     )
+    gully_original = gully.copy()
+    gully[~mask] = np.nan
 
-    del min15
+    logger.info("writing gully detection")
+    os.makedirs(DIRECTORY / "gully-pass1", exist_ok=True)
+    with rasterio.open(
+        DIRECTORY / "gully-pass1" / f"{name}-pass1.tif",
+        "w",
+        height=gully.shape[0],
+        width=gully.shape[1],
+        dtype=gully.dtype,
+        transform=transform,
+        **WRITE_OPTIONS,
+    ) as file:
+        file.write(gully, 1)
 
-    print("writing max15")
-    max15[~mask] = np.nan
-    write_geotiff(max15, "max15", name, crs, transform)
-    del max15
+    logger.info("scaling down and convolving gully image")
+    # scale down the images by a factor of 2 in each dimension
+    mask_small = scipy.ndimage.zoom(mask, 1 / 2, order=0)
+    gully_small = scipy.ndimage.zoom(gully_original, 1 / 2)
+    # then apply a convolution with smaller parameters for smoothing
+    kernels_small = [
+        line_in_disk(angle, linelength=10, radius=25, linewidth=1) for angle in angles
+    ]
+    gully_convolved = np.zeros_like(gully_small)
+    for index, (angle, kernel) in enumerate(zip(angles.tolist(), kernels_small)):
+        logger.info(f"{index:02d} convolve2d for radius=25 linelength=10 {angle=}")
+        np.maximum(
+            gully_convolved, convolve2d(gully_small, kernel), out=gully_convolved
+        )
+    # apply mask after scaling to avoid edge effects from mask
+    gully_convolved[~mask_small] = np.nan
 
-    print("computing sinusoidal fits")
-    A, B, C = sinusoidal(convolutions15)
-    del convolutions15
+    logger.info("writing small, convolved gully detection")
+    os.makedirs(DIRECTORY / "gully-pass2", exist_ok=True)
+    with rasterio.open(
+        DIRECTORY / "gully-pass2" / f"{name}-pass2.tif",
+        "w",
+        height=gully_convolved.shape[0],
+        width=gully_convolved.shape[1],
+        dtype=gully_convolved.dtype,
+        transform=transform * Affine.scale(2),
+        **WRITE_OPTIONS,
+    ) as file:
+        file.write(gully_convolved, 1)
 
-    print("computing low15, highlow15, and angle15")
-    hypot = np.sqrt(B**2 + C**2)
-    low15 = A - hypot
-    highlow15 = (A + hypot) - low15
-    angle15 = ((3 / 4) * np.pi - (1 / 2) * np.arctan2(C, B)) * (180 / np.pi) - 45
-    del hypot
+    logger.info("writing connected component clustering results")
+    os.makedirs(DIRECTORY / "gully-pass3", exist_ok=True)
+    all8corners = scipy.ndimage.generate_binary_structure(2, 2)
+    for percent in [1, 2, 4, 8]:
+        cut = 0.01 * percent
+        connected, _ = scipy.ndimage.label(gully_convolved > cut, all8corners)
 
-    print("writing low15, highlow15, and angle15")
-    low15[~mask] = np.nan
-    write_geotiff(low15, "low15", name, crs, transform)
-    del low15
+        with rasterio.open(
+            DIRECTORY / "gully-pass3" / f"{name}-pass3-{percent}.tif",
+            "w",
+            height=connected.shape[0],
+            width=connected.shape[1],
+            dtype=connected.dtype,
+            transform=transform * Affine.scale(2),
+            **WRITE_OPTIONS,
+        ) as file:
+            file.write(connected, 1)
 
-    highlow15[~mask] = np.nan
-    write_geotiff(highlow15, "highlow15", name, crs, transform)
-    del highlow15
+    logger.info("writing skeletonized graph results")
+    edges = skeletonize(gully_convolved, 0.01)  # uint8 with 0 meaning no node
+    with rasterio.open(
+        DIRECTORY / "gully-pass3" / f"{name}-pass3-graph.tif",
+        "w",
+        height=edges.shape[0],
+        width=edges.shape[1],
+        dtype=edges.dtype,
+        transform=transform * Affine.scale(2),
+        **WRITE_OPTIONS,
+    ) as file:
+        file.write(edges, 1)
 
-    angle15[~mask] = np.nan
-    write_geotiff(angle15, "angle15", name, crs, transform)
-    del angle15
-
-    convolutions5 = [None] * len(angles)
-    for index, (angle, kernel) in enumerate(zip(angles.tolist(), kernels5)):
-        print(f"{index:02d} convolve2d for linelength=5 {angle=}")
-        convolutions5[index] = convolve2d(elevation, kernel)
-
-    print("computing min5 and max5")
-    min5 = np.full(elevation.shape, np.inf, dtype=np.float32)
-    max5 = np.full(elevation.shape, -np.inf, dtype=np.float32)
-    for convolution in convolutions5:
-        np.minimum(min5, convolution, out=min5)
-        np.maximum(max5, convolution, out=max5)
-
-    print("writing min5 and max5")
-    min5[~mask] = np.nan
-    write_geotiff(min5, "min5", name, crs, transform)
-    del min5
-
-    max5[~mask] = np.nan
-    write_geotiff(max5, "max5", name, crs, transform)
-    del max5
-
-    print("computing sinusoidal fits")
-    A, B, C = sinusoidal(convolutions5)
-    del convolutions5
-
-    print("computing low5 and highlow5")
-    hypot = np.sqrt(B**2 + C**2)
-    low5 = A - hypot
-    highlow5 = (A + hypot) - low5
-    del hypot
-
-    print("writing low5 and highlow5")
-    low5[~mask] = np.nan
-    write_geotiff(low5, "low5", name, crs, transform)
-    del low5
-
-    highlow5[~mask] = np.nan
-    write_geotiff(highlow5, "highlow5", name, crs, transform)
-    del highlow5
-
-    print(f"END {name}")
+    logger.info(f"END {name}")

@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "oaec-found-gully"
+version = "0.1.0"
+dependencies = [
+    "cupy",
+    "numba",
+    "numba-cuda",
+    "numpy",
+    "pillow",
+    "rasterio",
+    "scipy",
+    "affine",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
