@@ -9,6 +9,7 @@
   maplibregl.addProtocol("pmtiles", protocol.tile);
 
   let leftWidth = 0.65 * window.innerWidth;
+
   let dragging = false;
 
   function startDrag(e: MouseEvent) {
