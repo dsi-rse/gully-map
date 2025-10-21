@@ -394,3 +394,21 @@ def sinusoidal(
             C[i, j] = INV8 * C_sum
 
     return A, B, C
+
+
+def low_high(A: np.ndarray, B: np.ndarray, C: np.ndarray) -> np.ndarray:
+    """
+    Returns the lower and upper bounds obtained by subtracting and adding
+    the Euclidean norm of B and C to A.
+
+    Parameters:
+        A (np.ndarray): Base values.
+        B (np.ndarray): First set of values to compute the norm.
+        C (np.ndarray): Second set of values to compute the norm.
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: The pair (A - hypot, A + hypot),
+        where hypot = sqrt(B**2 + C**2).
+    """
+    hypot = np.sqrt(B**2 + C**2)
+    return A - hypot, A + hypot

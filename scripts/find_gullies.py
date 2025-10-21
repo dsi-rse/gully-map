@@ -57,6 +57,7 @@ from oaec_found_gully.convolution import (
     argmin_across_angles,
     accumulate_at_argmin,
     sinusoidal,
+    low_high,
 )
 from oaec_found_gully.skeletonization import skeletonize
 
@@ -131,16 +132,12 @@ if __name__ == "__main__":
         np.minimum(min15, convolution, out=min15)
 
     # best-fit to a sinusoidal dependence on angle
-    logger.info("computing low15, highlow15, and angle15")
-    A, B, C = sinusoidal(tuple(convolutions15))
-    del convolutions15
+    logger.info("computing low15 and highlow15")
+    low15, high15 = low_high(*sinusoidal(tuple(convolutions15)))
     # if we ever want the angles, this is how to compute them:
     #     angle15 = ((3 / 4) * np.pi - (1 / 2) * np.arctan2(C, B)) * (180 / np.pi)
-    hypot = np.sqrt(B**2 + C**2)
-    del B, C
-    low15 = A - hypot
-    high15 = A + hypot
-    del A, hypot
+
+    del convolutions15
 
     # convolutions with the 5-pixel line_in_disk kernels, one for each angle
     convolutions5 = [None] * len(angles)
@@ -156,13 +153,8 @@ if __name__ == "__main__":
 
     # best-fit to a sinusoidal dependence on angle
     logger.info("computing low5 and highlow5")
-    A, B, C = sinusoidal(tuple(convolutions5))
+    low5, high5 = low_high(*sinusoidal(tuple(convolutions5)))
     del convolutions5
-    hypot = np.sqrt(B**2 + C**2)
-    del B, C
-    low5 = A - hypot
-    high5 = A + hypot
-    del A, hypot
 
     logger.info("read 2013 elevation for 9-year differences and the watershed mask")
     with rasterio.open(
