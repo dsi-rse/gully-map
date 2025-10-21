@@ -176,6 +176,7 @@ if __name__ == "__main__":
             dst_transform=transform,
             dst_crs=crs,
             resampling=rasterio.warp.Resampling.bilinear,
+            src_nodata=file.nodata,
         )
         # convert vertical elevation from feet to meters
         elevation2013 /= FEET_PER_METER
