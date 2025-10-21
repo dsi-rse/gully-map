@@ -19,6 +19,8 @@ raster data, especially for tasks involving multi-angular feature
 detection in terrain analysis pipelines.
 """
 
+from collections.abc import Callable
+
 import cupy as cp
 import numba as nb
 import numba.cuda
@@ -70,6 +72,37 @@ def point_in_disk(
     return small_disk
 
 
+def antialiased_kernel(make_shape: Callable, radius: int, antialias_scale: float):
+    """
+    Constructs an anti-aliased kernel from a high-resolution grid using the provided shape generator.
+
+    Parameters:
+        make_shape (Callable): Function that takes (x, y) coordinate arrays and returns a high-resolution 2D kernel.
+        radius (int): Defines the radius of the kernel in pixels (output kernel will be (2*radius+1) x (2*radius+1)).
+        antialias_scale (float): Factor to upsample the grid for anti-aliasing before downsampling.
+
+    Returns:
+        np.ndarray: The resulting kernel as a 2D NumPy array, anti-aliased to the desired size.
+    """
+    width = 2 * radius + 1
+
+    # compute size of high-resolution "big" grid for anti-aliasing
+    bigx, bigy = np.meshgrid(
+        np.arange(antialias_scale * width), np.arange(antialias_scale * width)
+    )
+    x = bigx / antialias_scale - (width // 2) - 0.5
+    y = bigy / antialias_scale - (width // 2) - 0.5
+
+    # build big kernel using provided function
+    big = make_shape(x, y)
+
+    # downsample and return
+    return np.sum(
+        np.sum(big.reshape((width, antialias_scale, width, antialias_scale)), axis=-1),
+        axis=-2,
+    )
+
+
 def line_in_disk(
     angle: float,
     *,
@@ -92,31 +125,20 @@ def line_in_disk(
     Returns:
         np.ndarray: 2D array kernel.
     """
-    # compute size of high-resolution "big" grid for anti-aliasing
-    width = 2 * radius + 1
-    bigx, bigy = np.meshgrid(
-        np.arange(antialias_scale * width), np.arange(antialias_scale * width)
-    )
-    x = bigx / antialias_scale - radius - 0.5
-    y = bigy / antialias_scale - radius - 0.5
 
-    # build the shape in large scale
-    disk = x**2 + y**2 <= radius**2
-    minidisk = np.exp(-(x**2 + y**2) / 2 / linelength**2) / np.sqrt(
-        2 * np.pi * linelength**2
-    )
-    line = (
-        np.abs(x * np.sin(-angle * np.pi / 180) - y * np.cos(angle * np.pi / 180))
-        < linewidth
-    )
-    centerline = minidisk * (disk & line)
-    big = -(disk / np.sum(disk)) + (centerline / np.sum(centerline))
+    def make_shape(x, y):
+        disk = x**2 + y**2 <= radius**2
+        minidisk = np.exp(-(x**2 + y**2) / 2 / linelength**2) / np.sqrt(
+            2 * np.pi * linelength**2
+        )
+        line = (
+            np.abs(x * np.sin(-angle * np.pi / 180) - y * np.cos(angle * np.pi / 180))
+            < linewidth
+        )
+        centerline = minidisk * (disk & line)
+        return -(disk / np.sum(disk)) + (centerline / np.sum(centerline))
 
-    # downsample and return
-    return np.sum(
-        np.sum(big.reshape((width, antialias_scale, width, antialias_scale)), axis=-1),
-        axis=-2,
-    )
+    return antialiased_kernel(make_shape, radius, antialias_scale)
 
 
 def half_disk(
@@ -139,28 +161,17 @@ def half_disk(
     Returns:
         np.ndarray: 2D array kernel.
     """
-    # compute size of high-resolution "big" grid for anti-aliasing
-    width = 2 * radius + 1
-    bigx, bigy = np.meshgrid(
-        np.arange(antialias_scale * width), np.arange(antialias_scale * width)
-    )
-    x = bigx / antialias_scale - radius - 0.5
-    y = bigy / antialias_scale - radius - 0.5
 
-    # build the shape in large scale
-    disk = np.exp(-(x**2 + y**2) / 2 / linelength**2) / np.sqrt(
-        2 * np.pi * linelength**2
-    )
-    line = x * np.sin(-angle * np.pi / 180) - y * np.cos(angle * np.pi / 180) < 0
-    positive = disk * line
-    negative = disk * ~line
-    big = positive / np.sum(positive) - negative / np.sum(negative)
+    def make_shape(x, y):
+        disk = np.exp(-(x**2 + y**2) / 2 / linelength**2) / np.sqrt(
+            2 * np.pi * linelength**2
+        )
+        line = x * np.sin(-angle * np.pi / 180) - y * np.cos(angle * np.pi / 180) < 0
+        positive = disk * line
+        negative = disk * ~line
+        return positive / np.sum(positive) - negative / np.sum(negative)
 
-    # downsample and return
-    return np.sum(
-        np.sum(big.reshape((width, antialias_scale, width, antialias_scale)), axis=-1),
-        axis=-2,
-    )
+    return antialiased_kernel(make_shape, radius, antialias_scale)
 
 
 def patch_with_nearest(elevation: np.ndarray) -> np.ndarray:
