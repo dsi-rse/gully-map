@@ -261,7 +261,7 @@ convolve2d._kernels = {}  # compiled function cache for the convolve2d function
 
 
 @nb.jit
-def argmin_across_angles(convolutions15: Tuple[16, np.ndarray]) -> np.ndarray:
+def argmin_across_angles(convolutions: Tuple[16, np.ndarray]) -> np.ndarray:
     """
     Returns the index of the input array with the minimum value at each pixel.
 
@@ -269,26 +269,26 @@ def argmin_across_angles(convolutions15: Tuple[16, np.ndarray]) -> np.ndarray:
     value and returns a new 2D array of indices in the range 0..15.
 
     Args:
-        convolutions15 (Tuple[16, np.ndarray]): Sequence of sixteen 2D numpy arrays
+        convolutions (Tuple[16, np.ndarray]): Sequence of sixteen 2D numpy arrays
             (all the same shape), e.g., responses at 16 angles.
 
     Returns:
         np.ndarray: 2D array of int64, same shape as input arrays, where each entry
         is the index (0..15) of the array with the minimum value at that pixel.
     """
-    assert len(convolutions15) == 16
+    assert len(convolutions) == 16
 
-    output = np.zeros(convolutions15[0].shape, dtype=np.int64)
+    output = np.zeros(convolutions[0].shape, dtype=np.int64)
 
     # for each pixel
-    for i in range(convolutions15[0].shape[0]):
-        for j in range(convolutions15[0].shape[1]):
-            # find which array in the convolutions15 has the minimum value at this pixel
-            min_15 = np.inf
+    for i in range(convolutions[0].shape[0]):
+        for j in range(convolutions[0].shape[1]):
+            # find which array in the convolutions has the minimum value at this pixel
+            min_value = np.inf
             min_k = 0
             for k in range(16):
-                if convolutions15[k][i, j] < min_15:
-                    min_15 = convolutions15[k][i, j]
+                if convolutions[k][i, j] < min_value:
+                    min_value = convolutions[k][i, j]
                     min_k = k
             output[i, j] = min_k
 
