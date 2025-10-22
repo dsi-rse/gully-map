@@ -1,9 +1,12 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import maplibregl from 'maplibre-gl';
-  import { MapLibre } from 'svelte-maplibre';
-  import { Protocol } from 'pmtiles';
-  import mapStyle from './map-style.json';
+  import { onMount } from "svelte";
+  import maplibregl from "maplibre-gl";
+  import { MapLibre } from "svelte-maplibre";
+  import { PMTiles, Protocol } from "pmtiles";
+
+  import mapStyle from "./map-style.json";
+
+  window.PMTiles = PMTiles;
 
   let protocol = new Protocol();
   maplibregl.addProtocol("pmtiles", protocol.tile);
@@ -80,6 +83,27 @@
     }
   }
 
+  function tile_and_pixel_position(event, tile_z) {
+    const lng = event.lngLat.lng;
+    const lat = event.lngLat.lat;
+
+    const tile_x = Math.floor((lng + 180) / 360 * Math.pow(2, tile_z));
+    const tile_y = Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, tile_z));
+
+    const TILE_SIZE = 256;
+    const scale = TILE_SIZE * Math.pow(2, tile_z);
+    const world_x = (lng + 180) / 360;
+    const sinLat = Math.sin(lat * Math.PI / 180);
+    const world_y = 0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI);
+    const pixel_x = Math.round(world_x * scale);
+    const pixel_y = Math.round(world_y * scale);
+
+    const tile_pixel_x = pixel_x % TILE_SIZE;
+    const tile_pixel_y = pixel_y % TILE_SIZE;
+
+    return [tile_x, tile_y, tile_pixel_x, tile_pixel_y];
+  }
+
   const highres_layers = [
     "baselayer_aerial_2013",
     "baselayer_aerial_2021",
@@ -116,7 +140,7 @@
           }
       }}
       onclick={(e) => {
-          const features = e.target.queryRenderedFeatures(e.point, { layers: ["parcels-filled"] });
+        const features = e.target.queryRenderedFeatures(e.point, { layers: ["parcels-filled"] });
         if (features.length == 0) {
             document.getElementById("last_clicked_in").innerHTML = "";
         }
@@ -126,6 +150,7 @@
 <b>Address:</b> ${f.address}, ${f.city}<br>
 ${f.type}; ${f.description}`;
         }
+        console.log(tile_and_pixel_position(e, 17));
       }}
       />
   </div>
