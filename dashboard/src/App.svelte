@@ -84,6 +84,7 @@
   }
 
   const TILE_SIZE = 256;
+  const elevation2013 = new PMTiles("https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/elevation-2013.pmtiles");
   const elevation2022 = new PMTiles("https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/elevation-2022.pmtiles");
 
   let tmp_canvas = document.createElement("canvas");
@@ -115,7 +116,7 @@
     const [tile_x, tile_y, tile_pixel_x, tile_pixel_y] = await tile_and_pixel_position(event, tile_z);
     const index = tile_pixel_y * TILE_SIZE + tile_pixel_x;
 
-    const response = await elevation2022.getZxy(tile_z, tile_x, tile_y);
+    const response = await elevation2013.getZxy(tile_z, tile_x, tile_y);
     if (response) {
       const blob = new Blob([response.data], {type: "image/png"});
       const imageBitmap = await createImageBitmap(blob);
