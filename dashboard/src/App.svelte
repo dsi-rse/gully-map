@@ -83,14 +83,21 @@
     }
   }
 
-  function tile_and_pixel_position(event, tile_z) {
+  const TILE_SIZE = 256;
+  const elevation2022 = new PMTiles("https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/elevation-2022.pmtiles");
+
+  let tmp_canvas = document.createElement("canvas");
+  tmp_canvas.width = TILE_SIZE;
+  tmp_canvas.height = TILE_SIZE;
+  let tmp_ctx = tmp_canvas.getContext("2d", { willReadFrequently: true });
+
+  async function tile_and_pixel_position(event, tile_z) {
     const lng = event.lngLat.lng;
     const lat = event.lngLat.lat;
 
     const tile_x = Math.floor((lng + 180) / 360 * Math.pow(2, tile_z));
     const tile_y = Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, tile_z));
 
-    const TILE_SIZE = 256;
     const scale = TILE_SIZE * Math.pow(2, tile_z);
     const world_x = (lng + 180) / 360;
     const sinLat = Math.sin(lat * Math.PI / 180);
@@ -102,6 +109,27 @@
     const tile_pixel_y = pixel_y % TILE_SIZE;
 
     return [tile_x, tile_y, tile_pixel_x, tile_pixel_y];
+  }
+
+  async function get_elevation(event, tile_z) {
+    const [tile_x, tile_y, tile_pixel_x, tile_pixel_y] = await tile_and_pixel_position(event, tile_z);
+    const index = tile_pixel_y * TILE_SIZE + tile_pixel_x;
+
+    const response = await elevation2022.getZxy(tile_z, tile_x, tile_y);
+    if (response) {
+      const blob = new Blob([response.data], {type: "image/png"});
+      const imageBitmap = await createImageBitmap(blob);
+
+      const tmp_ctx = document.getElementById("HERE").getContext("2d", { willReadFrequently: true });  // GROM
+
+      tmp_ctx.clearRect(0, 0, TILE_SIZE, TILE_SIZE);
+      tmp_ctx.drawImage(imageBitmap, 0, 0);
+      const data = tmp_ctx.getImageData(0, 0, TILE_SIZE, TILE_SIZE).data;
+      const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+      const value = view.getFloat32(4 * index, true);
+
+      document.getElementById("THERE").innerHTML = value.toString();
+    }
   }
 
   const highres_layers = [
@@ -150,7 +178,7 @@
 <b>Address:</b> ${f.address}, ${f.city}<br>
 ${f.type}; ${f.description}`;
         }
-        console.log(tile_and_pixel_position(e, 17));
+        get_elevation(e, 17);
       }}
       />
   </div>
@@ -209,6 +237,12 @@ ${f.type}; ${f.description}`;
         </div>
         <div>
            (See page 9 of <a href="https://tukmangeospatial.egnyte.com/dl/ADWSBBL7ac">LIDAR derivatives</a>)
+        </div>
+      </div>
+      <div class="group">
+        <div style="margin-left: 11px;">Experimental: <span id="THERE"></span></div>
+        <div style="margin: 5px; padding: 5px; border: 1px solid gray;">
+          <canvas id="HERE" width="256" height="256"></canvas>
         </div>
       </div>
     </div>

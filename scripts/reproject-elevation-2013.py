@@ -3,6 +3,8 @@ import glob
 import numpy as np
 import rasterio.warp
 
+NODATA = np.finfo(np.float32).max
+
 print("reading 2022 file")
 with rasterio.open("SONOMA_DTM_2020.tif") as src:
     src_crs = src.crs
@@ -18,7 +20,7 @@ dst_transform, dst_width, dst_height = rasterio.warp.calculate_default_transform
 )
 
 print("reprojecting")
-tmp_data = np.full((dst_height, dst_width), -9999.0, dtype=np.float32)
+tmp_data = np.full((dst_height, dst_width), NODATA, dtype=np.float32)
 
 for filename in sorted(glob.glob("bare-earth-hydroflattened-2013/*.tif")):
     print("   ", filename)
@@ -37,7 +39,7 @@ for filename in sorted(glob.glob("bare-earth-hydroflattened-2013/*.tif")):
         dst_crs=dst_crs,
         resampling=rasterio.enums.Resampling.bilinear,
         src_nodata=file_nodata,
-        dst_nodata=-9999.0,
+        dst_nodata=NODATA,
         init_dest_nodata=True,
     )
 
