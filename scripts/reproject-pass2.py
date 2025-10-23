@@ -33,7 +33,8 @@ del src_data
 
 print("preparing output array")
 dst_data = np.zeros((4, dst_height, dst_width), dtype=np.uint8)
-dst_data[0] = 255
+dst_data[0] = 148
+dst_data[1] = 181
 dst_data[2] = 255
 dst_data[3] = np.maximum(0, np.minimum(1, tmp_data) * 255)
 del tmp_data

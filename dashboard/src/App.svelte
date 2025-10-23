@@ -3,10 +3,12 @@
   import maplibregl from "maplibre-gl";
   import { MapLibre } from "svelte-maplibre";
   import { PMTiles, Protocol } from "pmtiles";
+  import upng from "upng-js";
 
   import mapStyle from "./map-style.json";
 
   window.PMTiles = PMTiles;
+  window.upng = upng;
 
   let protocol = new Protocol();
   maplibregl.addProtocol("pmtiles", protocol.tile);
@@ -87,11 +89,6 @@
   const elevation2013 = new PMTiles("https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/elevation-2013.pmtiles");
   const elevation2022 = new PMTiles("https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/elevation-2022.pmtiles");
 
-  let tmp_canvas = document.createElement("canvas");
-  tmp_canvas.width = TILE_SIZE;
-  tmp_canvas.height = TILE_SIZE;
-  let tmp_ctx = tmp_canvas.getContext("2d", { willReadFrequently: true });
-
   async function tile_and_pixel_position(event, tile_z) {
     const lng = event.lngLat.lng;
     const lat = event.lngLat.lat;
@@ -116,20 +113,33 @@
     const [tile_x, tile_y, tile_pixel_x, tile_pixel_y] = await tile_and_pixel_position(event, tile_z);
     const index = tile_pixel_y * TILE_SIZE + tile_pixel_x;
 
-    const response = await elevation2013.getZxy(tile_z, tile_x, tile_y);
-    if (response) {
-      const blob = new Blob([response.data], {type: "image/png"});
-      const imageBitmap = await createImageBitmap(blob);
-
-      const tmp_ctx = document.getElementById("HERE").getContext("2d", { willReadFrequently: true });  // GROM
-
-      tmp_ctx.clearRect(0, 0, TILE_SIZE, TILE_SIZE);
-      tmp_ctx.drawImage(imageBitmap, 0, 0);
-      const data = tmp_ctx.getImageData(0, 0, TILE_SIZE, TILE_SIZE).data;
-      const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+    const response2013_promise = elevation2013.getZxy(tile_z, tile_x, tile_y);
+    const response2022_promise = elevation2022.getZxy(tile_z, tile_x, tile_y);
+    const response2013 = await response2013_promise;
+    const response2022 = await response2022_promise;
+    if (response2013) {
+      const img = upng.decode(response2013.data);
+      const rgba = upng.toRGBA8(img)[0];  // first and only frame
+      const view = new DataView(rgba, 0, rgba.length);
       const value = view.getFloat32(4 * index, true);
-
-      document.getElementById("THERE").innerHTML = value.toString();
+      if (value < 3e38) {
+        document.getElementById("elevation_2013").innerHTML = `${value} meters`;
+      }
+      else {
+        document.getElementById("elevation_2013").innerHTML = "out of bounds";
+      }
+    }
+    if (response2022) {
+      const img = upng.decode(response2022.data);
+      const rgba = upng.toRGBA8(img)[0];  // first and only frame
+      const view = new DataView(rgba, 0, rgba.length);
+      const value = view.getFloat32(4 * index, true);
+      if (value < 3e38) {
+        document.getElementById("elevation_2022").innerHTML = `${value} meters`;
+      }
+      else {
+        document.getElementById("elevation_2022").innerHTML = "out of bounds";
+      }
     }
   }
 
@@ -186,8 +196,7 @@ ${f.type}; ${f.description}`;
   <div class="divider" on:mousedown={startDrag}></div>
   <div class="right-half" style="width: calc(100vw - 10px - {leftWidth}px);">
     <div>
-      <h3>Map layers</h3>
-      <div id="zoom_in_message" class="group">(Zoom in to enable high-resolution layers.)</div>
+      <div id="zoom_in_message" class="group">(Zoom in to turn on the disabled layers.)</div>
       <div class="group">
         <div>
           <label><input type="radio" name="baselayer" id="baselayer_basic" checked on:change={
@@ -241,10 +250,19 @@ ${f.type}; ${f.description}`;
         </div>
       </div>
       <div class="group">
-        <div style="margin-left: 11px;">Experimental: <span id="THERE"></span></div>
-        <div style="margin: 5px; padding: 5px; border: 1px solid gray;">
-          <canvas id="HERE" width="256" height="256"></canvas>
+        <div>
+          <label><input type="checkbox" name="gully_detection_pass2" on:change={
+              (e) => {
+                  if (map) {
+                      map.setLayoutProperty("gully_detection_pass2", "visibility", e.target.checked ? "visible" : "none");
+                  }
+              }
+          }> Gully detection probability</label>
         </div>
+      </div>
+      <div class="group">
+        <div>Elevation in 2013: <span id="elevation_2013">click somewhere</span></div>
+        <div>Elevation in 2022: <span id="elevation_2022">click somewhere</span></div>
       </div>
     </div>
   </div>

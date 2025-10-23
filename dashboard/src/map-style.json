@@ -67,6 +67,12 @@
       "tiles": ["pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/sonoma-county-ladder-fuels-8m.pmtiles/{z}/{x}/{y}"],
       "tileSize": 512,
       "maxzoom": 13
+    },
+    "gully_detection_pass2": {
+      "type": "raster",
+      "tiles": ["pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/gully-detection-pass2.pmtiles/{z}/{x}/{y}"],
+      "tileSize": 512,
+      "maxzoom": 16
     }
   },
   "sprite": "https://nst-guide.github.io/osm-liberty-topo/sprites/osm-liberty-topo",
@@ -2297,6 +2303,13 @@
     {
       "id": "ladder_fuels_8m",
       "source": "ladder_fuels_8m",
+      "type": "raster",
+      "paint": {"raster-resampling": "nearest"},
+      "layout": {"visibility": "none"}
+    },
+    {
+      "id": "gully_detection_pass2",
+      "source": "gully_detection_pass2",
       "type": "raster",
       "paint": {"raster-resampling": "nearest"},
       "layout": {"visibility": "none"}
