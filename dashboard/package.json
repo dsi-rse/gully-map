@@ -20,6 +20,8 @@
   },
   "dependencies": {
     "maplibre-gl": "^5.9.0",
-    "svelte-maplibre": "^1.2.3"
+    "pmtiles": "^4.3.0",
+    "svelte-maplibre": "^1.2.3",
+    "upng-js": "^2.1.0"
   }
 }
