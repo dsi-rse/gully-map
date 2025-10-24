@@ -16,6 +16,8 @@ dependencies = [
     "affine",
     "simplification",
     "pyarrow",
+    "shapely",
+    "geopandas",
 ]
 
 [tool.setuptools.packages.find]
