@@ -19,6 +19,7 @@
     "vite": "^7.1.7"
   },
   "dependencies": {
+    "hyparquet": "^1.20.1",
     "maplibre-gl": "^5.9.0",
     "pmtiles": "^4.3.0",
     "svelte-maplibre": "^1.2.3",

@@ -4,6 +4,7 @@
   import { MapLibre } from "svelte-maplibre";
   import { PMTiles, Protocol } from "pmtiles";
   import upng from "upng-js";
+  import { parquetRead } from "hyparquet";
 
   import mapStyle from "./map-style.json";
 
@@ -142,6 +143,23 @@
       }
     }
   }
+
+  fetch("https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/gully-detection-pass3-graph.parquet").then(async response => {
+    if (!response.ok) {
+      return;
+    }
+    let parquetFile = await response.arrayBuffer();
+
+    new Promise((onComplete) => parquetRead({
+      file: parquetFile,
+      columns: ["paths_lon", "paths_lat"],
+      rowStart: 0,
+      rowEnd: 139,  // number of watersheds in Sonoma County
+      onComplete,
+    })).then(data => {
+      console.log("done loading");
+    });
+  });
 
   const highres_layers = [
     "baselayer_aerial_2013",
