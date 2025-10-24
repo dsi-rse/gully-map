@@ -259,6 +259,16 @@ ${f.type}; ${f.description}`;
               }
           }> Gully detection probability</label>
         </div>
+        <div>
+          <label><input type="checkbox" name="gully_detection_pass3" on:change={
+              (e) => {
+                  if (map) {
+                      map.setLayoutProperty("gully_detection_pass3_underline", "visibility", e.target.checked ? "visible" : "none");
+                      map.setLayoutProperty("gully_detection_pass3", "visibility", e.target.checked ? "visible" : "none");
+                  }
+              }
+          }> Gully trough bottoms</label>
+        </div>
       </div>
       <div class="group">
         <div>Elevation in 2013: <span id="elevation_2013">click somewhere</span></div>

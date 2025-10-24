@@ -319,6 +319,7 @@ if __name__ == "__main__":
     paths_start_endpoint_id = pa.array(paths_start_endpoint_id)
     paths_stop_endpoint_id = pa.array(paths_stop_endpoint_id)
 
+    print("writing output...")
     pq.write_table(
         pa.Table.from_arrays(
             [
@@ -345,3 +346,5 @@ if __name__ == "__main__":
         "gully-detection-pass3-graph.parquet",
         compression="snappy",
     )
+
+    print("done")

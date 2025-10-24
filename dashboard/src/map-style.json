@@ -73,6 +73,12 @@
       "tiles": ["pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/gully-detection-pass2.pmtiles/{z}/{x}/{y}"],
       "tileSize": 512,
       "maxzoom": 16
+    },
+    "gully_detection_pass3": {
+      "type": "vector",
+      "url": "pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/gully-detection-pass3-graph.pmtiles",
+      "minzoom": 9,
+      "maxzoom": 16
     }
   },
   "sprite": "https://nst-guide.github.io/osm-liberty-topo/sprites/osm-liberty-topo",
@@ -2313,6 +2319,24 @@
       "type": "raster",
       "paint": {"raster-resampling": "nearest"},
       "layout": {"visibility": "none"}
+    },
+    {
+      "id": "gully_detection_pass3_underline",
+      "source": "gully_detection_pass3",
+      "source-layer": "gully_detection_pass3_graph",
+      "type": "line",
+      "paint": {"line-color": "white", "line-width": {"stops": [[14, 0], [16, 6]]}},
+      "minzoom": 14,
+      "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
+    },
+    {
+      "id": "gully_detection_pass3",
+      "source": "gully_detection_pass3",
+      "source-layer": "gully_detection_pass3_graph",
+      "type": "line",
+      "paint": {"line-color": "#9ebdff", "line-width": {"stops": [[14, 0], [16, 3]]}},
+      "minzoom": 14,
+      "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
     }
   ],
   "id": "osm-liberty-modified"
