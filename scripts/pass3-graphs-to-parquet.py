@@ -246,8 +246,8 @@ if __name__ == "__main__":
             reverse=True,
         )
 
-        # simplify path geometry using Visvalingam-Whyatt algorithm (threshold=10 units)
-        simplified_paths = [simplify_coords_vw(path, 10.0) for path in unique_paths]
+        # simplify path geometry using Visvalingam-Whyatt algorithm (threshold=3 units)
+        simplified_paths = [simplify_coords_vw(path, 3.0) for path in unique_paths]
 
         # assign endpoint IDs for start/stop (with spatial "fuzzing" to merge near-duplicates)
         endpoints: dict[(int, int), int] = {}
