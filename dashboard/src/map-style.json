@@ -2327,20 +2327,11 @@
       "layout": {"visibility": "none"}
     },
     {
-      "id": "gully_detection_pass3_underline",
+      "id": "gully_detection_pass3_outline",
       "source": "gully_detection_pass3",
       "source-layer": "gully_detection_pass3_graph",
       "type": "line",
       "paint": {"line-color": "white", "line-width": {"stops": [[14, 0], [16, 6]]}},
-      "minzoom": 14,
-      "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
-    },
-    {
-      "id": "gully_detection_pass3",
-      "source": "gully_detection_pass3",
-      "source-layer": "gully_detection_pass3_graph",
-      "type": "line",
-      "paint": {"line-color": "#9ebdff", "line-width": {"stops": [[14, 0], [16, 4]]}},
       "minzoom": 14,
       "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
     },
@@ -2361,6 +2352,15 @@
       "filter": [">", ["get", "level"], 0],
       "type": "line",
       "paint": {"line-color": "white", "line-width": {"stops": [[14, 0], [16, 6]]}, "line-opacity": 0.5},
+      "minzoom": 14,
+      "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
+    },
+    {
+      "id": "gully_detection_pass3",
+      "source": "gully_detection_pass3",
+      "source-layer": "gully_detection_pass3_graph",
+      "type": "line",
+      "paint": {"line-color": "#9ebdff", "line-width": {"stops": [[14, 0], [16, 4]]}},
       "minzoom": 14,
       "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
     },

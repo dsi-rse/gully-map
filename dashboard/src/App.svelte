@@ -154,7 +154,7 @@
       rowEnd: 139,  // number of watersheds in Sonoma County
       onComplete,
     })).then(data => {
-      console.log("done loading");
+      console.log(data);
     });
   });
 
@@ -278,7 +278,7 @@ ${f.type}; ${f.description}`;
           <label><input type="checkbox" name="gully_detection_pass3" on:change={
               (e) => {
                   if (map) {
-                      map.setLayoutProperty("gully_detection_pass3_underline", "visibility", e.target.checked ? "visible" : "none");
+                      map.setLayoutProperty("gully_detection_pass3_outline", "visibility", e.target.checked ? "visible" : "none");
                       map.setLayoutProperty("gully_detection_pass3", "visibility", e.target.checked ? "visible" : "none");
                   }
               }
@@ -296,7 +296,10 @@ ${f.type}; ${f.description}`;
                       map.setLayoutProperty("elevation_difference_plus", "visibility", e.target.checked ? "visible" : "none");
                   }
               }
-          }> Elevation differences</label> (1, 2, 3 meter contours, dashed is erosion)
+          }> Elevation differences</label>
+        </div>
+        <div style="margin-left: 1.5em;">
+          (1, 2, 3 meter contours, dashed is erosion)
         </div>
       </div>
       <div class="group">
