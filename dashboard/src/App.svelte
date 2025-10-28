@@ -260,7 +260,7 @@ ${f.type}; ${f.description}`;
               (e) => toggleLadderLayer("8m")
           }> (material in 1‒8 m) / (material in 0‒8 m)</label>
         </div>
-        <div>
+        <div style="margin-left: 1.5em;">
            (See page 9 of <a href="https://tukmangeospatial.egnyte.com/dl/ADWSBBL7ac">LIDAR derivatives</a>)
         </div>
       </div>
