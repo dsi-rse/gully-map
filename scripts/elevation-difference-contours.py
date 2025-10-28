@@ -6,6 +6,8 @@ import rasterio.warp
 import scipy.ndimage
 import skimage
 import shapely
+import cv2
+import matplotlib as mpl
 
 starttime = time.time()
 
@@ -97,27 +99,61 @@ with rasterio.open("elevation-2013.tif") as file:
 print(int(time.time() - starttime), "computing difference", flush=True)
 difference = elevation2022 - elevation2013
 
-print(int(time.time() - starttime), "capping differences at +-30 meters", flush=True)
-np.minimum(difference, 30, out=difference)
-np.maximum(difference, -30, out=difference)
+print(int(time.time() - starttime), "clamping differences at +-6 meters", flush=True)
+np.minimum(difference, 6, out=difference)
+np.maximum(difference, -6, out=difference)
+
+print(int(time.time() - starttime), "converting elevation differences into a colored image", flush=True)
+custom_cmap = mpl.colors.LinearSegmentedColormap.from_list(
+    "custom_cmap", ["#6f00ff", "#ffffff", "#00a000"], N=256
+)
+difference_image = np.transpose(
+    (custom_cmap(difference / 12 + 0.5) * 255).astype(np.uint8), [2, 0, 1]
+)
+
+print(int(time.time() - starttime), "writing elevation-difference as an RGBA GeoTIFF", flush=True)
+with rasterio.open(
+    "elevation-2022-minus-2013.tif",
+    "w",
+    driver="GTiff",
+    count=4,
+    transform=transform,
+    crs=crs,
+    height=difference.shape[0],
+    width=difference.shape[1],
+    dtype="uint8",
+    compress="DEFLATE",
+    tiled=True,
+    bigtiff="YES",
+) as file:
+    file.write(difference_image, [1, 2, 3, 4])
+
+del difference_image
 
 print(int(time.time() - starttime), "blurring differences for smooth contours", flush=True)
-difference = scipy.ndimage.gaussian_filter(difference, 10)
+# blurred = scipy.ndimage.gaussian_filter(difference, 3)
+blurred = cv2.GaussianBlur(difference, (0, 0), 3)
+
+levels = [float(x) for x in np.arange(-3, 3 + 1/3 - 1e-5, 1/3) if abs(x) > 1e-5]
 
 print(int(time.time() - starttime), "computing contours", flush=True)
 df_level = []
 df_geometry = []
-for level in [-3, -2, -1, 1, 2, 3]:
+for level in levels:
     print(int(time.time() - starttime), f"    level {level}", flush=True)
-    contours = skimage.measure.find_contours(difference, level)
+    contours = skimage.measure.find_contours(blurred, level)
     for contour in contours:
         xs, ys = rasterio.transform.xy(transform, contour[:, 0], contour[:, 1])
-        df_level.append(level)
-        df_geometry.append(shapely.geometry.LineString(zip(xs, ys)))
+        if len(xs) > 1:
+            df_level.append(level)
+            if xs[0] == xs[-1] and ys[0] == ys[-1]:
+                df_geometry.append(shapely.geometry.Polygon(zip(xs, ys)))
+            else:
+                df_geometry.append(shapely.geometry.LineString(zip(xs, ys)))
 
 print(int(time.time() - starttime), "creating DataFrame", flush=True)
 df = gpd.GeoDataFrame({"level": df_level}, geometry=df_geometry, crs=crs)
 df.to_crs("EPSG:4326", inplace=True)
 
 print(int(time.time() - starttime), "writing GeoJSON", flush=True)
-df.to_file("elevation-difference-contours.geojson")
+df.to_file("elevation-2022-minus-2013-contours.geojson")
