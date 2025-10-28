@@ -54,17 +54,14 @@
       if (layer == "basic") {
         map.setLayoutProperty("aerial_2013", "visibility", "none");
         map.setLayoutProperty("aerial_2021", "visibility", "none");
-        map.setPaintProperty("parcels", "line-opacity", 0.5);
       }
       else if (layer == "aerial_2013") {
         map.setLayoutProperty("aerial_2013", "visibility", "visible");
         map.setLayoutProperty("aerial_2021", "visibility", "none");
-        map.setPaintProperty("parcels", "line-opacity", 0.5);
       }
       else if (layer == "aerial_2022") {
         map.setLayoutProperty("aerial_2013", "visibility", "none");
         map.setLayoutProperty("aerial_2021", "visibility", "visible");
-        map.setPaintProperty("parcels", "line-opacity", 1);
       }
     }
   }
@@ -286,6 +283,20 @@ ${f.type}; ${f.description}`;
                   }
               }
           }> Gully trough bottoms</label>
+        </div>
+      </div>
+      <div class="group">
+        <div>
+          <label><input type="checkbox" name="elevation_difference" on:change={
+              (e) => {
+                  if (map) {
+                      map.setLayoutProperty("elevation_difference_minus_outline", "visibility", e.target.checked ? "visible" : "none");
+                      map.setLayoutProperty("elevation_difference_plus_outline", "visibility", e.target.checked ? "visible" : "none");
+                      map.setLayoutProperty("elevation_difference_minus", "visibility", e.target.checked ? "visible" : "none");
+                      map.setLayoutProperty("elevation_difference_plus", "visibility", e.target.checked ? "visible" : "none");
+                  }
+              }
+          }> Elevation differences</label> (1, 2, 3 meter contours, dashed is erosion)
         </div>
       </div>
       <div class="group">

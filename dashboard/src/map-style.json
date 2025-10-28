@@ -79,6 +79,12 @@
       "url": "pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/gully-detection-pass3-graph.pmtiles",
       "minzoom": 9,
       "maxzoom": 16
+    },
+    "elevation_difference": {
+      "type": "vector",
+      "url": "pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/elevation-2022-minus-2013-contours.pmtiles",
+      "minzoom": 9,
+      "maxzoom": 24
     }
   },
   "sprite": "https://nst-guide.github.io/osm-liberty-topo/sprites/osm-liberty-topo",
@@ -2335,6 +2341,46 @@
       "source-layer": "gully_detection_pass3_graph",
       "type": "line",
       "paint": {"line-color": "#9ebdff", "line-width": {"stops": [[14, 0], [16, 4]]}},
+      "minzoom": 14,
+      "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
+    },
+    {
+      "id": "elevation_difference_minus_outline",
+      "source": "elevation_difference",
+      "source-layer": "contours",
+      "filter": ["<", ["get", "level"], 0],
+      "type": "line",
+      "paint": {"line-color": "white", "line-width": {"stops": [[14, 0], [16, 6]]}, "line-opacity": 0.5},
+      "minzoom": 14,
+      "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
+    },
+    {
+      "id": "elevation_difference_plus_outline",
+      "source": "elevation_difference",
+      "source-layer": "contours",
+      "filter": [">", ["get", "level"], 0],
+      "type": "line",
+      "paint": {"line-color": "white", "line-width": {"stops": [[14, 0], [16, 6]]}, "line-opacity": 0.5},
+      "minzoom": 14,
+      "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
+    },
+    {
+      "id": "elevation_difference_minus",
+      "source": "elevation_difference",
+      "source-layer": "contours",
+      "filter": ["<", ["get", "level"], 0],
+      "type": "line",
+      "paint": {"line-color": "#6f00ff", "line-width": {"stops": [[14, 0], [16, 2]]}, "line-dasharray": [1, 2]},
+      "minzoom": 14,
+      "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
+    },
+    {
+      "id": "elevation_difference_plus",
+      "source": "elevation_difference",
+      "source-layer": "contours",
+      "filter": [">", ["get", "level"], 0],
+      "type": "line",
+      "paint": {"line-color": "#6f00ff", "line-width": {"stops": [[14, 0], [16, 2]]}},
       "minzoom": 14,
       "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
     }
