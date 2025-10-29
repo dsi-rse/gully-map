@@ -43,7 +43,6 @@
     window.addEventListener("mousemove", onHorizontalPaneDrag);
     window.addEventListener("mouseup", stopHorizontalPaneDrag);
     document.getElementById("baselayer_slider").addEventListener("input", hideBaselayer);
-    document.addEventListener("keydown", handleEscapeDrawing);
     return () => {
       window.removeEventListener("mousemove", onHorizontalPaneDrag);
       window.removeEventListener("mouseup", stopHorizontalPaneDrag);
@@ -192,14 +191,136 @@
 
   $: drawToggleChecked = checkboxUserEnabled  ||  shiftDown;
 
-  // drawing state
-  let drawing = false;
-  let straightLineMode = false;
-  let firstClick = null;
-  let drawPoints = [];
-
   function isDrawEnabled() {
     return checkboxUserEnabled  ||  shiftDown;
+  }
+
+  // drawing state
+  let drawState = "idle";  // "idle" | "freehand" | "awaiting-second-click"
+  let drawPoints = [];
+
+  function handleMapMouseDown(e) {
+    if (!isDrawEnabled()  ||  e.originalEvent.button !== 0  ||  map === null) {
+      return;
+    }
+
+    if (drawState === "awaiting-second-click") {
+      // second click: finish straight line
+      finishStraightLine(e);
+      return;
+    }
+
+    // not currently drawing: a new drawing session
+    let moved = false;
+    let first = true;
+
+    function moveListener(e2) {
+      if (!first  &&  drawState === "idle") {
+        map.off("mousemove", moveListener);
+        map.off("mouseup", upListener);
+        map.dragPan.enable();
+        return;
+      }
+      first = false;
+
+      moved = true;
+      if (drawState !== "freehand") {
+        startFreehand(e);
+      }
+      updateFreehand(e2);
+    }
+
+    function upListener(e2) {
+      first = false;
+
+      map.off("mousemove", moveListener);
+      map.off("mouseup", upListener);
+      map.dragPan.enable();
+
+      if (drawState === "freehand") {
+        finishFreehand();
+      }
+      else if (!moved) {
+        // this was a click, not drag: enter straight line mode and wait
+        startStraightLine(e2);
+      }
+      else {
+        cancelDrawing(); // defensive (shouldn't reach here)
+      }
+    }
+
+    map.dragPan.disable();
+    map.on("mousemove", moveListener);
+    map.on("mouseup", upListener);
+  }
+
+  function startFreehand(e) {
+    drawState = "freehand";
+    drawPoints = [[e.lngLat.lng, e.lngLat.lat]];
+    updateDrawLine();
+  }
+
+  function updateFreehand(e) {
+    if (drawState !== "freehand") {
+      return;
+    }
+
+    const here = [e.lngLat.lng, e.lngLat.lat];
+    const last = drawPoints[drawPoints.length - 1];
+    if (last[0] !== here[0] || last[1] !== here[1]) {
+      drawPoints.push(here);
+      updateDrawLine();
+    }
+  }
+
+  function finishFreehand() {
+    if (drawState === "freehand" && drawPoints.length > 1) {
+      handleDrawn(drawPoints);
+    }
+    cancelDrawing();
+  }
+
+  function startStraightLine(e) {
+    drawState = "awaiting-second-click";
+    const pt = [e.lngLat.lng, e.lngLat.lat];
+    drawPoints = [pt, pt];
+    updateDrawLine();
+  }
+
+  function updateStraightLine(e) {
+    if (drawState !== "awaiting-second-click") {
+      return;
+    }
+    drawPoints[1] = [e.lngLat.lng, e.lngLat.lat];
+    updateDrawLine();
+  }
+
+  function finishStraightLine(e) {
+    if (drawState !== "awaiting-second-click") {
+      return;
+    }
+    drawPoints[1] = [e.lngLat.lng, e.lngLat.lat];
+    handleDrawn(drawPoints);
+    cancelDrawing();
+  }
+
+  function cancelDrawing() {
+    drawState = "idle";
+  }
+
+  function handleMapMouseMove(e) {
+    let did_something = false;
+    if (drawState === "awaiting-second-click") {
+      did_something = true;
+      updateStraightLine(e);
+    }
+  }
+
+  function handleDrawToggleChange(e) {
+    checkboxUserEnabled = e.target.checked;
+    if (!isDrawEnabled()  &&  drawState !== "idle") {
+      cancelDrawing();
+    }
   }
 
   function handleWindowKeydown(e) {
@@ -211,141 +332,13 @@
   function handleWindowKeyup(e) {
     if (e.key === "Shift"  &&  shiftDown) {
       shiftDown = false;
-      if (!isDrawEnabled()  &&  drawing) {
-        cancelDrawing();
-      }
+      cancelDrawing();
     }
   }
 
   function onDrawToggleChange(e) {
     checkboxUserEnabled = e.target.checked;
-    if (!isDrawEnabled()  &&  drawing) {
-      cancelDrawing();
-    }
-  }
-
-  function setCheckboxView() {
-    document.getElementById("draw-toggle").checked = isDrawEnabled();
-  }
-
-  function startStraightLine(e) {
-    drawing = true;
-    straightLineMode = true;
-    firstClick = [e.lngLat.lng, e.lngLat.lat];
-    drawPoints = [firstClick, firstClick];
-    updateDrawLine();
-  }
-
-  function updateStraightLine(e) {
-    if (!drawing  ||  !straightLineMode) {
-      return;
-    }
-    drawPoints[1] = [e.lngLat.lng, e.lngLat.lat];
-    updateDrawLine();
-  }
-
-  function stopStraightLine(e) {
-    straightLineMode = false;
-    drawing = false;
-    drawPoints[1] = [e.lngLat.lng, e.lngLat.lat];
-    updateDrawLine();
-    handleDrawn(drawPoints);
-    clearDrawLine();
-  }
-
-  function startFreehand(e) {
-    drawing = true;
-    straightLineMode = false;
-    drawPoints = [[e.lngLat.lng, e.lngLat.lat]];
-    updateDrawLine();
-  }
-
-  function updateFreehand(e) {
-    if (!drawing  ||  straightLineMode) {
-      return;
-    }
-    const last = drawPoints[drawPoints.length - 1];
-    const here = [e.lngLat.lng, e.lngLat.lat];
-    if (last[0] !== here[0]  ||  last[1] !== here[1]) {
-      drawPoints.push(here);
-      updateDrawLine();
-    }
-  }
-
-  function stopFreehand() {
-    if (drawing  &&  drawPoints.length > 1) {
-      handleDrawn(drawPoints);
-    }
-    drawing = false;
-    drawPoints = [];
-    clearDrawLine();
-  }
-
-  function cancelDrawing() {
-    drawing = false;
-    straightLineMode = false;
-    drawPoints = [];
-    firstClick = null;
-    clearDrawLine();
-  }
-
-  function handleMapMouseDown(e) {
-    if (map === null) {
-      return;
-    }
-    if (!isDrawEnabled()) {
-      return;
-    }
-    if (e.originalEvent.button !== 0) {
-      return;
-    }
-
-    map.dragPan.disable();
-
-    let moved = false;
-    let moveListener = e2 => {
-      moved = true;
-      if (!drawing) {
-        startFreehand(e);
-      }
-      updateFreehand(e2);
-    };
-
-    let upListener = e2 => {
-      map.off("mousemove", moveListener);
-      map.off("mouseup", upListener);
-      map.dragPan.enable();
-      if (!moved) {
-        if (!drawing) {
-          startStraightLine(e2);
-        }
-        else if (drawing  &&  straightLineMode) {
-          stopStraightLine(e2);
-        }
-        else {
-          stopFreehand();
-        }
-      }
-    };
-
-    map.on("mousemove", moveListener);
-    map.on("mouseup", upListener);
-  }
-
-  function handleMapMouseMove(e) {
-    if (drawing  &&  straightLineMode) {
-      updateStraightLine(e);
-    }
-  }
-
-  function maybeCancelIfDisabled() {
-    if (!isDrawEnabled()  &&  drawing) {
-      cancelDrawing();
-    }
-  }
-
-  function handleEscapeDrawing(e) {
-    if (e.key === "Escape"  &&  drawing) {
+    if (!isDrawEnabled()  &&  drawState !== "idle") {
       cancelDrawing();
     }
   }
@@ -365,23 +358,8 @@
     }
   }
 
-  function clearDrawLine() {
-    if (map) {
-      let source = map.getSource("draw-line");
-      if (source) {
-        source.setData({
-          type: "Feature",
-          geometry: {
-            type: "LineString",
-            coordinates: [],
-          },
-        });
-      }
-    }
-  }
-
   function handleDrawn(coords) {
-    alert(JSON.stringify(coords));
+    console.log(JSON.stringify(coords));
   }
 
   // fetch("https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/gully-detection-pass3-graph.parquet").then(async response => {
@@ -580,11 +558,12 @@ ${f.type}; ${f.description}`;
         </div>
       </div>
       <div class="group">
+        <h3>Elevation along line</h3>
         <div>
-          <label for="draw-toggle"><input id="draw-toggle" type="checkbox" bind:checked={drawToggleChecked} on:change={onDrawToggleChange}> Draw line for elevation query</label>
+          <label for="draw-toggle"><input id="draw-toggle" type="checkbox" bind:checked={drawToggleChecked} on:change={onDrawToggleChange}> Draw line instead of moving map</label>
         </div>
         <div style="margin-left: 1.5em;">
-           (or hold shift key and drag mouse)
+           (holding the <b>shift</b> key temporarily enables this)
         </div>
       </div>
       <div class="group">
