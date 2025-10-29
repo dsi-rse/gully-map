@@ -96,6 +96,17 @@
     }
   }
 
+  function toggleElevationContours() {
+    if (map) {
+      let yes_contours = document.getElementById("elevation_difference_contours").checked;
+      let yes_fill = document.getElementById("elevation_difference_contours_fill").checked;
+      map.setLayoutProperty("elevation_difference_contour_minus_fill", "visibility", yes_contours && yes_fill ? "visible" : "none");
+      map.setLayoutProperty("elevation_difference_contour_plus_fill", "visibility", yes_contours && yes_fill ? "visible" : "none");
+      map.setLayoutProperty("elevation_difference_contour_minus", "visibility", yes_contours ? "visible" : "none");
+      map.setLayoutProperty("elevation_difference_contour_plus", "visibility", yes_contours ? "visible" : "none");
+    }
+  }
+
   const TILE_SIZE = 256;
   const elevation2013 = new PMTiles("https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/elevation-2013.pmtiles");
   const elevation2022 = new PMTiles("https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/elevation-2022.pmtiles");
@@ -322,22 +333,13 @@ ${f.type}; ${f.description}`;
                       map.setLayoutProperty("gully_detection_pass3", "visibility", e.target.checked ? "visible" : "none");
                   }
               }
-          }> Gully trough bottoms</label>
+          }> Gully paths as lines</label>
         </div>
       </div>
       <div class="group">
         <h3>Erosion</h3>
         <div>
-          <label><input type="checkbox" name="elevation_difference" on:change={
-              (e) => {
-                  if (map) {
-                      map.setLayoutProperty("elevation_difference_contour_minus_fill", "visibility", e.target.checked ? "visible" : "none");
-                      map.setLayoutProperty("elevation_difference_contour_minus", "visibility", e.target.checked ? "visible" : "none");
-                      map.setLayoutProperty("elevation_difference_contour_plus_fill", "visibility", e.target.checked ? "visible" : "none");
-                      map.setLayoutProperty("elevation_difference_contour_plus", "visibility", e.target.checked ? "visible" : "none");
-                  }
-              }
-          }> 2013-2022 elevation difference contours</label>
+          <label><input type="checkbox" id="elevation_difference_contours" on:change={() => toggleElevationContours()}> 2013-2022 elevation difference contours</label>
         </div>
         <div style="margin-left: 1.5em;">
           (1/3 meter spacing, <span style="vertical-align: 0em; display: inline-block; width: 1em; height: 1em;">
@@ -348,7 +350,10 @@ ${f.type}; ${f.description}`;
             <svg width="1em" height="1em" viewBox="0 0 24 24" style="display: inline; vertical-align: middle;" xmlns="http://www.w3.org/2000/svg">
               <circle cx="12" cy="12" r="10" stroke="#00a000" stroke-width="3" fill="none"/>
             </svg>
-          </span> deposition, 1st is dashed)
+          </span> deposition)
+        </div>
+        <div>
+          <label><input type="checkbox" id="elevation_difference_contours_fill" checked on:change={() => toggleElevationContours()}> ...and fill in the polygons</label>
         </div>
       </div>
       <div class="group">
