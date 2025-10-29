@@ -15,20 +15,20 @@
   maplibregl.addProtocol("pmtiles", protocol.tile);
 
   let rightWidth = 0.35 * window.innerWidth;
-  let dragging = false;
+  let horizontalPaneDragging = false;
 
-  function startDrag(e: MouseEvent) {
-    dragging = true;
+  function startHorizontalPaneDrag(e: MouseEvent) {
+    horizontalPaneDragging = true;
     document.body.style.cursor = "col-resize";
   }
 
-  function stopDrag() {
-    dragging = false;
+  function stopHorizontalPaneDrag() {
+    horizontalPaneDragging = false;
     document.body.style.cursor = "";
   }
 
-  function onDrag(e: MouseEvent) {
-    if (dragging) {
+  function onHorizontalPaneDrag(e: MouseEvent) {
+    if (horizontalPaneDragging) {
       let min = 200, max = window.innerWidth - 200;
       let x = Math.min(max, Math.max(min, e.clientX));
       rightWidth = window.innerWidth - x;
@@ -40,18 +40,40 @@
   }
 
   onMount(() => {
-    window.addEventListener("mousemove", onDrag);
-    window.addEventListener("mouseup", stopDrag);
+    window.addEventListener("mousemove", onHorizontalPaneDrag);
+    window.addEventListener("mouseup", stopHorizontalPaneDrag);
     document.getElementById("baselayer_slider").addEventListener("input", hideBaselayer);
+    document.addEventListener("keydown", handleEscapeDrawing);
     return () => {
-      window.removeEventListener("mousemove", onDrag);
-      window.removeEventListener("mouseup", stopDrag);
+      window.removeEventListener("mousemove", onHorizontalPaneDrag);
+      window.removeEventListener("mouseup", stopHorizontalPaneDrag);
     };
   });
 
   let map = null;
   function handleOnLoad(theMap) {
     map = theMap;
+
+    map.boxZoom.disable();
+    map.on("mousedown", handleMapMouseDown);
+    map.on("mousemove", handleMapMouseMove);
+
+    map.addSource("draw-line", {
+      type: "geojson",
+      data: {
+        type: "Feature",
+        geometry: {
+          type: "LineString",
+          coordinates: [],
+        },
+      },
+    });
+    map.addLayer({
+      id: "draw-line",
+      type: "line",
+      source: "draw-line",
+      paint: {"line-color": "magenta", "line-width": 3},
+    });
   }
 
   function toggleBaselayer(layer) {
@@ -165,22 +187,219 @@
     }
   }
 
-  fetch("https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/gully-detection-pass3-graph.parquet").then(async response => {
-    if (!response.ok) {
+  let checkboxUserEnabled = false;
+  let shiftDown = false;
+
+  $: drawToggleChecked = checkboxUserEnabled  ||  shiftDown;
+
+  // drawing state
+  let drawing = false;
+  let straightLineMode = false;
+  let firstClick = null;
+  let drawPoints = [];
+
+  function isDrawEnabled() {
+    return checkboxUserEnabled  ||  shiftDown;
+  }
+
+  function handleWindowKeydown(e) {
+    if (e.key === "Shift"  &&  !shiftDown) {
+      shiftDown = true;
+    }
+  }
+
+  function handleWindowKeyup(e) {
+    if (e.key === "Shift"  &&  shiftDown) {
+      shiftDown = false;
+      if (!isDrawEnabled()  &&  drawing) {
+        cancelDrawing();
+      }
+    }
+  }
+
+  function onDrawToggleChange(e) {
+    checkboxUserEnabled = e.target.checked;
+    if (!isDrawEnabled()  &&  drawing) {
+      cancelDrawing();
+    }
+  }
+
+  function setCheckboxView() {
+    document.getElementById("draw-toggle").checked = isDrawEnabled();
+  }
+
+  function startStraightLine(e) {
+    drawing = true;
+    straightLineMode = true;
+    firstClick = [e.lngLat.lng, e.lngLat.lat];
+    drawPoints = [firstClick, firstClick];
+    updateDrawLine();
+  }
+
+  function updateStraightLine(e) {
+    if (!drawing  ||  !straightLineMode) {
       return;
     }
-    let parquetFile = await response.arrayBuffer();
+    drawPoints[1] = [e.lngLat.lng, e.lngLat.lat];
+    updateDrawLine();
+  }
 
-    new Promise((onComplete) => parquetRead({
-      file: parquetFile,
-      columns: ["paths_lon", "paths_lat"],
-      rowStart: 0,
-      rowEnd: 139,  // number of watersheds in Sonoma County
-      onComplete,
-    })).then(data => {
-      console.log(data);
-    });
-  });
+  function stopStraightLine(e) {
+    straightLineMode = false;
+    drawing = false;
+    drawPoints[1] = [e.lngLat.lng, e.lngLat.lat];
+    updateDrawLine();
+    handleDrawn(drawPoints);
+    clearDrawLine();
+  }
+
+  function startFreehand(e) {
+    drawing = true;
+    straightLineMode = false;
+    drawPoints = [[e.lngLat.lng, e.lngLat.lat]];
+    updateDrawLine();
+  }
+
+  function updateFreehand(e) {
+    if (!drawing  ||  straightLineMode) {
+      return;
+    }
+    const last = drawPoints[drawPoints.length - 1];
+    const here = [e.lngLat.lng, e.lngLat.lat];
+    if (last[0] !== here[0]  ||  last[1] !== here[1]) {
+      drawPoints.push(here);
+      updateDrawLine();
+    }
+  }
+
+  function stopFreehand() {
+    if (drawing  &&  drawPoints.length > 1) {
+      handleDrawn(drawPoints);
+    }
+    drawing = false;
+    drawPoints = [];
+    clearDrawLine();
+  }
+
+  function cancelDrawing() {
+    drawing = false;
+    straightLineMode = false;
+    drawPoints = [];
+    firstClick = null;
+    clearDrawLine();
+  }
+
+  function handleMapMouseDown(e) {
+    if (map === null) {
+      return;
+    }
+    if (!isDrawEnabled()) {
+      return;
+    }
+    if (e.originalEvent.button !== 0) {
+      return;
+    }
+
+    map.dragPan.disable();
+
+    let moved = false;
+    let moveListener = e2 => {
+      moved = true;
+      if (!drawing) {
+        startFreehand(e);
+      }
+      updateFreehand(e2);
+    };
+
+    let upListener = e2 => {
+      map.off("mousemove", moveListener);
+      map.off("mouseup", upListener);
+      map.dragPan.enable();
+      if (!moved) {
+        if (!drawing) {
+          startStraightLine(e2);
+        }
+        else if (drawing  &&  straightLineMode) {
+          stopStraightLine(e2);
+        }
+        else {
+          stopFreehand();
+        }
+      }
+    };
+
+    map.on("mousemove", moveListener);
+    map.on("mouseup", upListener);
+  }
+
+  function handleMapMouseMove(e) {
+    if (drawing  &&  straightLineMode) {
+      updateStraightLine(e);
+    }
+  }
+
+  function maybeCancelIfDisabled() {
+    if (!isDrawEnabled()  &&  drawing) {
+      cancelDrawing();
+    }
+  }
+
+  function handleEscapeDrawing(e) {
+    if (e.key === "Escape"  &&  drawing) {
+      cancelDrawing();
+    }
+  }
+
+  function updateDrawLine() {
+    if (map) {
+      let source = map.getSource("draw-line");
+      if (source) {
+        source.setData({
+          type: "Feature",
+          geometry: {
+            type: "LineString",
+            coordinates: drawPoints  &&  drawPoints.length >= 2 ? drawPoints : [],
+          },
+        });
+      }
+    }
+  }
+
+  function clearDrawLine() {
+    if (map) {
+      let source = map.getSource("draw-line");
+      if (source) {
+        source.setData({
+          type: "Feature",
+          geometry: {
+            type: "LineString",
+            coordinates: [],
+          },
+        });
+      }
+    }
+  }
+
+  function handleDrawn(coords) {
+    alert(JSON.stringify(coords));
+  }
+
+  // fetch("https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/gully-detection-pass3-graph.parquet").then(async response => {
+  //   if (!response.ok) {
+  //     return;
+  //   }
+  //   let parquetFile = await response.arrayBuffer();
+
+  //   new Promise((onComplete) => parquetRead({
+  //     file: parquetFile,
+  //     columns: ["paths_lon", "paths_lat"],
+  //     rowStart: 0,
+  //     rowEnd: 139,  // number of watersheds in Sonoma County
+  //     onComplete,
+  //   })).then(data => {
+  //     console.log(data);
+  //   });
+  // });
 
   const highres_layers = [
     "baselayer_aerial_2013",
@@ -189,6 +408,8 @@
   ];
 
 </script>
+
+<svelte:window on:keydown={handleWindowKeydown} on:keyup={handleWindowKeyup} />
 
 <div class="whole-page"> 
   <div class="left-half" style="width: calc(100vw - 10px - {rightWidth}px);">
@@ -232,7 +453,7 @@ ${f.type}; ${f.description}`;
       }}
       />
   </div>
-  <div class="divider" on:mousedown={startDrag}></div>
+  <div class="divider" on:mousedown={startHorizontalPaneDrag}></div>
   <div class="right-half" style="width: {rightWidth}px;">
     <div>
       <div class="group">
@@ -359,6 +580,15 @@ ${f.type}; ${f.description}`;
         </div>
       </div>
       <div class="group">
+        <div>
+          <label for="draw-toggle"><input id="draw-toggle" type="checkbox" bind:checked={drawToggleChecked} on:change={onDrawToggleChange}> Draw line for elevation query</label>
+        </div>
+        <div style="margin-left: 1.5em;">
+           (or hold shift key and drag mouse)
+        </div>
+      </div>
+      <div class="group">
+        <h3>Temporary</h3>
         <div>Elevation in 2013: <span id="elevation_2013">click somewhere</span></div>
         <div>Elevation in 2022: <span id="elevation_2022">click somewhere</span></div>
       </div>
