@@ -54,14 +54,22 @@
       if (layer == "basic") {
         map.setLayoutProperty("aerial_2013", "visibility", "none");
         map.setLayoutProperty("aerial_2021", "visibility", "none");
+        map.setLayoutProperty("elevation_difference", "visibility", "none");
       }
       else if (layer == "aerial_2013") {
         map.setLayoutProperty("aerial_2013", "visibility", "visible");
         map.setLayoutProperty("aerial_2021", "visibility", "none");
+        map.setLayoutProperty("elevation_difference", "visibility", "none");
       }
       else if (layer == "aerial_2022") {
         map.setLayoutProperty("aerial_2013", "visibility", "none");
         map.setLayoutProperty("aerial_2021", "visibility", "visible");
+        map.setLayoutProperty("elevation_difference", "visibility", "none");
+      }
+      else if (layer == "elevation_difference") {
+        map.setLayoutProperty("aerial_2013", "visibility", "none");
+        map.setLayoutProperty("aerial_2021", "visibility", "none");
+        map.setLayoutProperty("elevation_difference", "visibility", "visible");
       }
     }
   }
@@ -161,6 +169,7 @@
   const highres_layers = [
     "baselayer_aerial_2013",
     "baselayer_aerial_2021",
+    "baselayer_elevation_difference",
     "layer_parcel",
   ];
 
@@ -231,6 +240,12 @@ ${f.type}; ${f.description}`;
           }> 2021 aerial photography</label>
           (<a href="https://gis.sonomacounty.ca.gov/datasets/dc026cbfb9884d51a65dae1846bf76a5/explore?location=38.472153%2C-122.943650%2C10.18">Sonoma GIS</a>,
           <a href="https://www.arcgis.com/home/item.html?id=0c361a688a5a453487021132c878e870">through Esri</a>)
+        </div>
+        <div>
+          <label for="baselayer_elevation_difference" class="disabled"><input type="radio" name="baselayer" id="baselayer_elevation_difference" disabled on:change={
+              (e) => toggleBaselayer("elevation_difference")
+          }> 2013-2022 elevation difference</label>
+          (purple erosion, green pile-up)
         </div>
       </div>
       <div class="group">
