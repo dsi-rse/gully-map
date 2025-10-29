@@ -170,7 +170,6 @@
     "baselayer_aerial_2013",
     "baselayer_aerial_2021",
     "baselayer_elevation_difference",
-    "layer_parcel",
   ];
 
 </script>
@@ -220,7 +219,6 @@ ${f.type}; ${f.description}`;
   <div class="divider" on:mousedown={startDrag}></div>
   <div class="right-half" style="width: calc(100vw - 10px - {leftWidth}px);">
     <div>
-      <div id="zoom_in_message" class="group">(Zoom in to turn on the disabled layers.)</div>
       <div class="group">
         <div>
           <label><input type="radio" name="baselayer" id="baselayer_basic" checked on:change={
@@ -253,12 +251,15 @@ ${f.type}; ${f.description}`;
             <svg width="1em" height="1em" viewBox="0 0 24 24" style="display: inline; vertical-align: middle;" xmlns="http://www.w3.org/2000/svg">
               <rect x="2" y="2" width="20" height="20" fill="#7ece7e" stroke="#000000" stroke-width="1"/>
             </svg>
-          </span> pile-up)
+          </span> deposition)
+        </div>
+        <div id="zoom_in_message" style="margin-left: 1.5em;">
+          (Zoom in to allow disabled baselayers.)
         </div>
       </div>
       <div class="group">
         <div>
-          <label for="layer_parcel" class="disabled"><input type="checkbox" id="layer_parcel" disabled on:change={
+          <label for="layer_parcel"><input type="checkbox" id="layer_parcel" on:change={
                 (e) => map.setLayoutProperty("parcels", "visibility", e.target.checked ? "visible" : "none")
             }> Land ownership boundaries</label> (<a href="https://gis.sonomacounty.ca.gov/maps/4b231e8ffbac47abb9a78296e550ffa1">source</a>)
         </div>
@@ -313,7 +314,7 @@ ${f.type}; ${f.description}`;
           <label><input type="checkbox" name="elevation_difference" on:change={
               (e) => {
                   if (map) {
-                      map.setLayoutProperty("elevation_difference_contours_outline", "visibility", e.target.checked ? "visible" : "none");
+                      map.setLayoutProperty("elevation_difference_contour_outline", "visibility", e.target.checked ? "visible" : "none");
                       map.setLayoutProperty("elevation_difference_contour_-3", "visibility", e.target.checked ? "visible" : "none");
                       map.setLayoutProperty("elevation_difference_contour_-2.666", "visibility", e.target.checked ? "visible" : "none");
                       map.setLayoutProperty("elevation_difference_contour_-2.333", "visibility", e.target.checked ? "visible" : "none");
@@ -345,7 +346,7 @@ ${f.type}; ${f.description}`;
             <svg width="1em" height="1em" viewBox="0 0 24 24" style="display: inline; vertical-align: middle;" xmlns="http://www.w3.org/2000/svg">
               <circle cx="12" cy="12" r="10" stroke="#00a000" stroke-width="3" fill="none"/>
             </svg>
-          </span> pile-up)
+          </span> deposition, 1st is dashed)
         </div>
       </div>
       <div class="group">

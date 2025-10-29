@@ -88,9 +88,9 @@
     },
     "elevation_difference_contours": {
       "type": "vector",
-      "url": "pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/elevation-2022-minus-2013-contours-z22.pmtiles",
+      "url": "pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/elevation-2022-minus-2013-contours.pmtiles",
       "minzoom": 9,
-      "maxzoom": 22
+      "maxzoom": 24
     }
   },
   "sprite": "https://nst-guide.github.io/osm-liberty-topo/sprites/osm-liberty-topo",
@@ -2348,6 +2348,16 @@
       "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
     },
     {
+      "id": "elevation_difference_contour_outline",
+      "source": "elevation_difference_contours",
+      "source-layer": "contours",
+      "filter": ["==", ["abs", ["round", ["*", ["get", "level"], 3]]], 1],
+      "type": "line",
+      "paint": {"line-color": "white", "line-width": {"stops": [[14, 0], [20, 6]]}},
+      "minzoom": 14,
+      "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
+    },
+    {
       "id": "gully_detection_pass3",
       "source": "gully_detection_pass3",
       "source-layer": "gully_detection_pass3_graph",
@@ -2442,7 +2452,7 @@
       "source-layer": "contours",
       "filter": ["==", ["round", ["*", ["get", "level"], 3]], -1],
       "type": "line",
-      "paint": {"line-color": "#efe2ff", "line-width": {"stops": [[14, 0], [20, 2]]}},
+      "paint": {"line-color": "#9ebdff", "line-width": {"stops": [[14, 0], [20, 2]]}, "line-dasharray": [1, 2]},
       "minzoom": 14,
       "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
     },
@@ -2452,7 +2462,7 @@
       "source-layer": "contours",
       "filter": ["==", ["round", ["*", ["get", "level"], 3]], 1],
       "type": "line",
-      "paint": {"line-color": "#e2f4e2", "line-width": {"stops": [[14, 0], [20, 2]]}},
+      "paint": {"line-color": "#00a000", "line-width": {"stops": [[14, 0], [20, 2]]}, "line-dasharray": [1, 2]},
       "minzoom": 14,
       "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
     },
