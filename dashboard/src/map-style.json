@@ -43,18 +43,21 @@
     "aerial_2013": {
       "type": "raster",
       "tiles": ["https://wayback.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/WMTS/1.0.0/default028mm/MapServer/tile/11019/{z}/{y}/{x}"],
+      "attribution": "<a href=\"https://sonomavegmap.org/\" target=\"_blank\">© SonomaVegMap</a> (CC BY-SA)",
       "minzoom": 14,
       "maxzoom": 24
     },
     "aerial_2021": {
       "type": "raster",
       "tiles": ["https://wayback.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/WMTS/1.0.0/default028mm/MapServer/tile/45134/{z}/{y}/{x}"],
+      "attribution": "<a href=\"https://sonomavegmap.org/\" target=\"_blank\">© SonomaVegMap</a> (CC BY-SA)",
       "minzoom": 12,
       "maxzoom": 20
     },
     "elevation_difference": {
       "type": "raster",
       "tiles": ["pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/elevation-2022-minus-2013.pmtiles/{z}/{x}/{y}"],
+      "attribution": "<a href=\"https://sonomavegmap.org/\" target=\"_blank\">© SonomaVegMap</a> (CC BY-SA)",
       "tileSize": 512,
       "maxzoom": 16
     },
@@ -65,30 +68,35 @@
     "ladder_fuels_4m": {
       "type": "raster",
       "tiles": ["pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/sonoma-county-ladder-fuels-4m.pmtiles/{z}/{x}/{y}"],
+      "attribution": "<a href=\"https://sonomavegmap.org/\" target=\"_blank\">© SonomaVegMap</a> (CC BY-SA)",
       "tileSize": 512,
       "maxzoom": 13
     },
     "ladder_fuels_8m": {
       "type": "raster",
       "tiles": ["pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/sonoma-county-ladder-fuels-8m.pmtiles/{z}/{x}/{y}"],
+      "attribution": "<a href=\"https://sonomavegmap.org/\" target=\"_blank\">© SonomaVegMap</a> (CC BY-SA)",
       "tileSize": 512,
       "maxzoom": 13
     },
     "gully_detection_pass2": {
       "type": "raster",
       "tiles": ["pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/gully-detection-pass2.pmtiles/{z}/{x}/{y}"],
+      "attribution": "<a href=\"https://datascience.uchicago.edu/\" target=\"_blank\">© U. Chicago DSI</a>",
       "tileSize": 512,
       "maxzoom": 16
     },
     "gully_detection_pass3": {
       "type": "vector",
       "url": "pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/gully-detection-pass3-graph.pmtiles",
+      "attribution": "<a href=\"https://datascience.uchicago.edu/\" target=\"_blank\">© U. Chicago DSI</a>",
       "minzoom": 9,
       "maxzoom": 16
     },
     "elevation_difference_contours": {
       "type": "vector",
       "url": "pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/elevation-2022-minus-2013-contours.pmtiles",
+      "attribution": "<a href=\"https://sonomavegmap.org/\" target=\"_blank\">© SonomaVegMap</a> (CC BY-SA)",
       "minzoom": 9,
       "maxzoom": 24
     }
