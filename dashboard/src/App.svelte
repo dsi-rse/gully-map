@@ -245,7 +245,15 @@ ${f.type}; ${f.description}`;
           <label for="baselayer_elevation_difference" class="disabled"><input type="radio" name="baselayer" id="baselayer_elevation_difference" disabled on:change={
               (e) => toggleBaselayer("elevation_difference")
           }> 2013-2022 elevation difference</label>
-          (purple erosion, green pile-up)
+          (<span style="vertical-align: 0em; display: inline-block; width: 1em; height: 1em;">
+            <svg width="1em" height="1em" viewBox="0 0 24 24" style="display: inline; vertical-align: middle;" xmlns="http://www.w3.org/2000/svg">
+              <rect x="2" y="2" width="20" height="20" fill="#b780ff" stroke="#000000" stroke-width="1"/>
+            </svg>
+          </span> erosion, <span style="vertical-align: 0em; display: inline-block; width: 1em; height: 1em;">
+            <svg width="1em" height="1em" viewBox="0 0 24 24" style="display: inline; vertical-align: middle;" xmlns="http://www.w3.org/2000/svg">
+              <rect x="2" y="2" width="20" height="20" fill="#7ece7e" stroke="#000000" stroke-width="1"/>
+            </svg>
+          </span> pile-up)
         </div>
       </div>
       <div class="group">
@@ -305,16 +313,39 @@ ${f.type}; ${f.description}`;
           <label><input type="checkbox" name="elevation_difference" on:change={
               (e) => {
                   if (map) {
-                      map.setLayoutProperty("elevation_difference_minus_outline", "visibility", e.target.checked ? "visible" : "none");
-                      map.setLayoutProperty("elevation_difference_plus_outline", "visibility", e.target.checked ? "visible" : "none");
-                      map.setLayoutProperty("elevation_difference_minus", "visibility", e.target.checked ? "visible" : "none");
-                      map.setLayoutProperty("elevation_difference_plus", "visibility", e.target.checked ? "visible" : "none");
+                      map.setLayoutProperty("elevation_difference_contours_outline", "visibility", e.target.checked ? "visible" : "none");
+                      map.setLayoutProperty("elevation_difference_contour_-3", "visibility", e.target.checked ? "visible" : "none");
+                      map.setLayoutProperty("elevation_difference_contour_-2.666", "visibility", e.target.checked ? "visible" : "none");
+                      map.setLayoutProperty("elevation_difference_contour_-2.333", "visibility", e.target.checked ? "visible" : "none");
+                      map.setLayoutProperty("elevation_difference_contour_-2", "visibility", e.target.checked ? "visible" : "none");
+                      map.setLayoutProperty("elevation_difference_contour_-1.666", "visibility", e.target.checked ? "visible" : "none");
+                      map.setLayoutProperty("elevation_difference_contour_-1.333", "visibility", e.target.checked ? "visible" : "none");
+                      map.setLayoutProperty("elevation_difference_contour_-1", "visibility", e.target.checked ? "visible" : "none");
+                      map.setLayoutProperty("elevation_difference_contour_-0.666", "visibility", e.target.checked ? "visible" : "none");
+                      map.setLayoutProperty("elevation_difference_contour_-0.333", "visibility", e.target.checked ? "visible" : "none");
+                      map.setLayoutProperty("elevation_difference_contour_0.333", "visibility", e.target.checked ? "visible" : "none");
+                      map.setLayoutProperty("elevation_difference_contour_0.666", "visibility", e.target.checked ? "visible" : "none");
+                      map.setLayoutProperty("elevation_difference_contour_1", "visibility", e.target.checked ? "visible" : "none");
+                      map.setLayoutProperty("elevation_difference_contour_1.333", "visibility", e.target.checked ? "visible" : "none");
+                      map.setLayoutProperty("elevation_difference_contour_1.666", "visibility", e.target.checked ? "visible" : "none");
+                      map.setLayoutProperty("elevation_difference_contour_2", "visibility", e.target.checked ? "visible" : "none");
+                      map.setLayoutProperty("elevation_difference_contour_2.333", "visibility", e.target.checked ? "visible" : "none");
+                      map.setLayoutProperty("elevation_difference_contour_2.666", "visibility", e.target.checked ? "visible" : "none");
+                      map.setLayoutProperty("elevation_difference_contour_3", "visibility", e.target.checked ? "visible" : "none");
                   }
               }
-          }> Elevation differences</label>
+          }> 2013-2022 elevation difference contours</label>
         </div>
         <div style="margin-left: 1.5em;">
-          (1, 2, 3 meter contours, dashed is erosion)
+          (1/3 meter spacing, <span style="vertical-align: 0em; display: inline-block; width: 1em; height: 1em;">
+            <svg width="1em" height="1em" viewBox="0 0 24 24" style="display: inline; vertical-align: middle;" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="12" r="10" stroke="#6f00ff" stroke-width="3" fill="none"/>
+            </svg>
+          </span> erosion, <span style="vertical-align: 0em; display: inline-block; width: 1em; height: 1em;">
+            <svg width="1em" height="1em" viewBox="0 0 24 24" style="display: inline; vertical-align: middle;" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="12" r="10" stroke="#00a000" stroke-width="3" fill="none"/>
+            </svg>
+          </span> pile-up)
         </div>
       </div>
       <div class="group">
