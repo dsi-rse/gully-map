@@ -300,6 +300,16 @@
       return;
     }
     drawPoints[1] = [e.lngLat.lng, e.lngLat.lat];
+
+    // interpolate 100 intermediate points
+    drawPoints = Array.from({ length: 100 }, (_, i) => {
+      const t = i / 99;
+      return [
+        drawPoints[0][0] * (1 - t) + drawPoints[1][0] * t,
+        drawPoints[0][1] * (1 - t) + drawPoints[1][1] * t,
+      ];
+    });
+
     handleDrawn(drawPoints);
     cancelDrawing();
   }
@@ -476,7 +486,7 @@ ${f.type}; ${f.description}`;
             </svg>
           </span> deposition)
         </div>
-        <div id="zoom_in_message" style="margin-left: 1.5em;">
+        <div id="zoom_in_message" class="indent">
           (Zoom in to allow disabled baselayers.)
         </div>
       </div>
@@ -509,7 +519,7 @@ ${f.type}; ${f.description}`;
               (e) => toggleLadderLayer("8m")
           }> (material in 1‒8 m) / (material in 0‒8 m)</label>
         </div>
-        <div style="margin-left: 1.5em;">
+        <div class="indent">
            (See page 9 of <a href="https://tukmangeospatial.egnyte.com/dl/ADWSBBL7ac">LIDAR derivatives</a>)
         </div>
       </div>
@@ -540,7 +550,7 @@ ${f.type}; ${f.description}`;
         <div>
           <label><input type="checkbox" id="elevation_difference_contours" on:change={() => toggleElevationContours()}> 2013-2022 elevation difference contours</label>
         </div>
-        <div style="margin-left: 1.5em;">
+        <div class="indent">
           (1/3 meter spacing, <span style="vertical-align: 0.1em; display: inline-block; width: 1em; height: 1em;">
             <svg width="1em" height="1em" viewBox="0 0 24 24" style="display: inline; vertical-align: middle;" xmlns="http://www.w3.org/2000/svg">
               <circle cx="12" cy="12" r="10" stroke="#6f00ff" stroke-width="2" fill="none"/>
@@ -562,8 +572,8 @@ ${f.type}; ${f.description}`;
         <div>
           <label for="draw-toggle"><input id="draw-toggle" type="checkbox" bind:checked={drawToggleChecked} on:change={onDrawToggleChange}> Draw line instead of moving map</label>
         </div>
-        <div style="margin-left: 1.5em;">
-           (holding the <b>shift</b> key temporarily enables this)
+        <div class="indent">
+           (holding the <b>shift</b> key temporarily enables this; <b>two clicks</b> for a straight line and <b>drag</b> for a curve)
         </div>
       </div>
       <div class="group">
@@ -625,6 +635,10 @@ ${f.type}; ${f.description}`;
 
   :global(.group) {
     margin-bottom: 1em;
+  }
+
+  :global(.indent) {
+    margin-left: 1.5em;
   }
 
   :global(.map) {
