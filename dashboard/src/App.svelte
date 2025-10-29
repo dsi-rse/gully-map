@@ -56,23 +56,6 @@
     map.boxZoom.disable();
     map.on("mousedown", handleMapMouseDown);
     map.on("mousemove", handleMapMouseMove);
-
-    map.addSource("draw-line", {
-      type: "geojson",
-      data: {
-        type: "Feature",
-        geometry: {
-          type: "LineString",
-          coordinates: [],
-        },
-      },
-    });
-    map.addLayer({
-      id: "draw-line",
-      type: "line",
-      source: "draw-line",
-      paint: {"line-color": "magenta", "line-width": 3},
-    });
   }
 
   function toggleBaselayer(layer) {

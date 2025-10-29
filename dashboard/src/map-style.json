@@ -99,6 +99,10 @@
       "attribution": "<a href=\"https://sonomavegmap.org/\" target=\"_blank\">© SonomaVegMap</a> (CC BY-SA)",
       "minzoom": 9,
       "maxzoom": 24
+    },
+    "draw-line": {
+      "type": "geojson",
+      "data": {"type": "Feature", "geometry": {"type": "LineString", "coordinates": []}}
     }
   },
   "sprite": "https://nst-guide.github.io/osm-liberty-topo/sprites/osm-liberty-topo",
@@ -2373,8 +2377,8 @@
       "id": "elevation_difference_contour_minus_fill",
       "source": "elevation_difference_contours",
       "source-layer": "contours",
-      "filter": ["<", ["get", "level"], 0],
       "type": "fill",
+      "filter": ["<", ["get", "level"], 0],
       "paint": {"fill-color": "#6f00ff", "fill-opacity": {"stops": [[14, 0], [16, 0.05]]}},
       "minzoom": 14,
       "layout": {"visibility": "none"}
@@ -2383,8 +2387,8 @@
       "id": "elevation_difference_contour_plus_fill",
       "source": "elevation_difference_contours",
       "source-layer": "contours",
-      "filter": [">", ["get", "level"], 0],
       "type": "fill",
+      "filter": [">", ["get", "level"], 0],
       "paint": {"fill-color": "#00a000", "fill-opacity": {"stops": [[14, 0], [16, 0.05]]}},
       "minzoom": 14,
       "layout": {"visibility": "none"}
@@ -2393,8 +2397,8 @@
       "id": "elevation_difference_contour_minus",
       "source": "elevation_difference_contours",
       "source-layer": "contours",
-      "filter": ["<", ["get", "level"], 0],
       "type": "line",
+      "filter": ["<", ["get", "level"], 0],
       "paint": {"line-color": "#6f00ff", "line-width": {"stops": [[14, 0], [20, 2]]}},
       "minzoom": 14,
       "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
@@ -2403,11 +2407,17 @@
       "id": "elevation_difference_contour_plus",
       "source": "elevation_difference_contours",
       "source-layer": "contours",
-      "filter": [">", ["get", "level"], 0],
       "type": "line",
+      "filter": [">", ["get", "level"], 0],
       "paint": {"line-color": "#00a000", "line-width": {"stops": [[14, 0], [20, 2]]}},
       "minzoom": 14,
       "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
+    },
+    {
+      "id": "draw-line",
+      "source": "draw-line",
+      "type": "line",
+      "paint": {"line-color": "magenta", "line-width": 3}
     }
   ],
   "id": "osm-liberty-modified"
