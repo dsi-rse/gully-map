@@ -35,9 +35,14 @@
     }
   }
 
+  function hideBaselayer(e) {
+    map.setPaintProperty("contrast", "background-opacity", 1 - e.target.value);
+  }
+
   onMount(() => {
     window.addEventListener("mousemove", onDrag);
     window.addEventListener("mouseup", stopDrag);
+    document.getElementById("baselayer_slider").addEventListener("input", hideBaselayer);
     return () => {
       window.removeEventListener("mousemove", onDrag);
       window.removeEventListener("mouseup", stopDrag);
@@ -220,6 +225,14 @@ ${f.type}; ${f.description}`;
   <div class="right-half" style="width: calc(100vw - 10px - {leftWidth}px);">
     <div>
       <div class="group">
+        <h3>Base layer</h3>
+        <div>
+          <div style="display: flex; width: 100%;">
+            <label for="baselayer_slider" style="white-space: nowrap;">Hidden</label>
+            <input type="range" style="flex: 1;" id="baselayer_slider" min="0" max="1" step="0.1" value="1">
+            <label for="baselayer_slider" style="white-space: nowrap;">Visible</label>
+          </div>
+        </div>
         <div>
           <label><input type="radio" name="baselayer" id="baselayer_basic" checked on:change={
               (e) => toggleBaselayer("basic")
@@ -258,6 +271,7 @@ ${f.type}; ${f.description}`;
         </div>
       </div>
       <div class="group">
+        <h3>Land ownership</h3>
         <div>
           <label for="layer_parcel"><input type="checkbox" id="layer_parcel" on:change={
                 (e) => map.setLayoutProperty("parcels", "visibility", e.target.checked ? "visible" : "none")
@@ -269,6 +283,7 @@ ${f.type}; ${f.description}`;
         <div id="last_clicked_in" style="min-height: 1em; margin: 5px; padding: 5px; border: 1px solid gray;"></div>
       </div>
       <div class="group">
+        <h3>Fire hazard</h3>
         <div>
           <label><input type="radio" name="ladderlayer" id="ladderlayer_none" checked on:change={
               (e) => toggleLadderLayer("none")
@@ -289,6 +304,7 @@ ${f.type}; ${f.description}`;
         </div>
       </div>
       <div class="group">
+        <h3>Gullies</h3>
         <div>
           <label><input type="checkbox" name="gully_detection_pass2" on:change={
               (e) => {
@@ -310,29 +326,15 @@ ${f.type}; ${f.description}`;
         </div>
       </div>
       <div class="group">
+        <h3>Erosion</h3>
         <div>
           <label><input type="checkbox" name="elevation_difference" on:change={
               (e) => {
                   if (map) {
-                      map.setLayoutProperty("elevation_difference_contour_outline", "visibility", e.target.checked ? "visible" : "none");
-                      map.setLayoutProperty("elevation_difference_contour_-3", "visibility", e.target.checked ? "visible" : "none");
-                      map.setLayoutProperty("elevation_difference_contour_-2.666", "visibility", e.target.checked ? "visible" : "none");
-                      map.setLayoutProperty("elevation_difference_contour_-2.333", "visibility", e.target.checked ? "visible" : "none");
-                      map.setLayoutProperty("elevation_difference_contour_-2", "visibility", e.target.checked ? "visible" : "none");
-                      map.setLayoutProperty("elevation_difference_contour_-1.666", "visibility", e.target.checked ? "visible" : "none");
-                      map.setLayoutProperty("elevation_difference_contour_-1.333", "visibility", e.target.checked ? "visible" : "none");
-                      map.setLayoutProperty("elevation_difference_contour_-1", "visibility", e.target.checked ? "visible" : "none");
-                      map.setLayoutProperty("elevation_difference_contour_-0.666", "visibility", e.target.checked ? "visible" : "none");
-                      map.setLayoutProperty("elevation_difference_contour_-0.333", "visibility", e.target.checked ? "visible" : "none");
-                      map.setLayoutProperty("elevation_difference_contour_0.333", "visibility", e.target.checked ? "visible" : "none");
-                      map.setLayoutProperty("elevation_difference_contour_0.666", "visibility", e.target.checked ? "visible" : "none");
-                      map.setLayoutProperty("elevation_difference_contour_1", "visibility", e.target.checked ? "visible" : "none");
-                      map.setLayoutProperty("elevation_difference_contour_1.333", "visibility", e.target.checked ? "visible" : "none");
-                      map.setLayoutProperty("elevation_difference_contour_1.666", "visibility", e.target.checked ? "visible" : "none");
-                      map.setLayoutProperty("elevation_difference_contour_2", "visibility", e.target.checked ? "visible" : "none");
-                      map.setLayoutProperty("elevation_difference_contour_2.333", "visibility", e.target.checked ? "visible" : "none");
-                      map.setLayoutProperty("elevation_difference_contour_2.666", "visibility", e.target.checked ? "visible" : "none");
-                      map.setLayoutProperty("elevation_difference_contour_3", "visibility", e.target.checked ? "visible" : "none");
+                      map.setLayoutProperty("elevation_difference_contour_minus_fill", "visibility", e.target.checked ? "visible" : "none");
+                      map.setLayoutProperty("elevation_difference_contour_minus", "visibility", e.target.checked ? "visible" : "none");
+                      map.setLayoutProperty("elevation_difference_contour_plus_fill", "visibility", e.target.checked ? "visible" : "none");
+                      map.setLayoutProperty("elevation_difference_contour_plus", "visibility", e.target.checked ? "visible" : "none");
                   }
               }
           }> 2013-2022 elevation difference contours</label>

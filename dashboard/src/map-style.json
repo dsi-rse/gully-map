@@ -2300,6 +2300,11 @@
       "layout": {"visibility": "none"}
     },
     {
+      "id": "contrast",
+      "type": "background",
+      "paint": {"background-color": "white", "background-opacity": 0}
+    },
+    {
       "id": "parcels",
       "source": "parcels",
       "source-layer": "parcels",
@@ -2348,16 +2353,6 @@
       "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
     },
     {
-      "id": "elevation_difference_contour_outline",
-      "source": "elevation_difference_contours",
-      "source-layer": "contours",
-      "filter": ["==", ["abs", ["round", ["*", ["get", "level"], 3]]], 1],
-      "type": "line",
-      "paint": {"line-color": "white", "line-width": {"stops": [[14, 0], [20, 6]]}},
-      "minzoom": 14,
-      "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
-    },
-    {
       "id": "gully_detection_pass3",
       "source": "gully_detection_pass3",
       "source-layer": "gully_detection_pass3_graph",
@@ -2367,180 +2362,40 @@
       "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
     },
     {
-      "id": "elevation_difference_contour_-3",
+      "id": "elevation_difference_contour_minus_fill",
       "source": "elevation_difference_contours",
       "source-layer": "contours",
-      "filter": ["==", ["round", ["*", ["get", "level"], 3]], -9],
+      "filter": ["<", ["get", "level"], 0],
+      "type": "fill",
+      "paint": {"fill-color": "#6f00ff", "fill-opacity": {"stops": [[14, 0], [16, 0.05]]}},
+      "minzoom": 14,
+      "layout": {"visibility": "none"}
+    },
+    {
+      "id": "elevation_difference_contour_plus_fill",
+      "source": "elevation_difference_contours",
+      "source-layer": "contours",
+      "filter": [">", ["get", "level"], 0],
+      "type": "fill",
+      "paint": {"fill-color": "#00a000", "fill-opacity": {"stops": [[14, 0], [16, 0.05]]}},
+      "minzoom": 14,
+      "layout": {"visibility": "none"}
+    },
+    {
+      "id": "elevation_difference_contour_minus",
+      "source": "elevation_difference_contours",
+      "source-layer": "contours",
+      "filter": ["<", ["get", "level"], 0],
       "type": "line",
       "paint": {"line-color": "#6f00ff", "line-width": {"stops": [[14, 0], [20, 2]]}},
       "minzoom": 14,
       "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
     },
     {
-      "id": "elevation_difference_contour_-2.666",
+      "id": "elevation_difference_contour_plus",
       "source": "elevation_difference_contours",
       "source-layer": "contours",
-      "filter": ["==", ["round", ["*", ["get", "level"], 3]], -8],
-      "type": "line",
-      "paint": {"line-color": "#7f1cff", "line-width": {"stops": [[14, 0], [20, 2]]}},
-      "minzoom": 14,
-      "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
-    },
-    {
-      "id": "elevation_difference_contour_-2.333",
-      "source": "elevation_difference_contours",
-      "source-layer": "contours",
-      "filter": ["==", ["round", ["*", ["get", "level"], 3]], -7],
-      "type": "line",
-      "paint": {"line-color": "#8f38ff", "line-width": {"stops": [[14, 0], [20, 2]]}},
-      "minzoom": 14,
-      "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
-    },
-    {
-      "id": "elevation_difference_contour_-2",
-      "source": "elevation_difference_contours",
-      "source-layer": "contours",
-      "filter": ["==", ["round", ["*", ["get", "level"], 3]], -6],
-      "type": "line",
-      "paint": {"line-color": "#9e54ff", "line-width": {"stops": [[14, 0], [20, 2]]}},
-      "minzoom": 14,
-      "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
-    },
-    {
-      "id": "elevation_difference_contour_-1.666",
-      "source": "elevation_difference_contours",
-      "source-layer": "contours",
-      "filter": ["==", ["round", ["*", ["get", "level"], 3]], -5],
-      "type": "line",
-      "paint": {"line-color": "#ae70ff", "line-width": {"stops": [[14, 0], [20, 2]]}},
-      "minzoom": 14,
-      "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
-    },
-    {
-      "id": "elevation_difference_contour_-1.333",
-      "source": "elevation_difference_contours",
-      "source-layer": "contours",
-      "filter": ["==", ["round", ["*", ["get", "level"], 3]], -4],
-      "type": "line",
-      "paint": {"line-color": "#bf8eff", "line-width": {"stops": [[14, 0], [20, 2]]}},
-      "minzoom": 14,
-      "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
-    },
-    {
-      "id": "elevation_difference_contour_-1",
-      "source": "elevation_difference_contours",
-      "source-layer": "contours",
-      "filter": ["==", ["round", ["*", ["get", "level"], 3]], -3],
-      "type": "line",
-      "paint": {"line-color": "#cfaaff", "line-width": {"stops": [[14, 0], [20, 2]]}},
-      "minzoom": 14,
-      "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
-    },
-    {
-      "id": "elevation_difference_contour_-0.666",
-      "source": "elevation_difference_contours",
-      "source-layer": "contours",
-      "filter": ["==", ["round", ["*", ["get", "level"], 3]], -2],
-      "type": "line",
-      "paint": {"line-color": "#dfc6ff", "line-width": {"stops": [[14, 0], [20, 2]]}},
-      "minzoom": 14,
-      "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
-    },
-    {
-      "id": "elevation_difference_contour_-0.333",
-      "source": "elevation_difference_contours",
-      "source-layer": "contours",
-      "filter": ["==", ["round", ["*", ["get", "level"], 3]], -1],
-      "type": "line",
-      "paint": {"line-color": "#9ebdff", "line-width": {"stops": [[14, 0], [20, 2]]}, "line-dasharray": [1, 2]},
-      "minzoom": 14,
-      "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
-    },
-    {
-      "id": "elevation_difference_contour_0.333",
-      "source": "elevation_difference_contours",
-      "source-layer": "contours",
-      "filter": ["==", ["round", ["*", ["get", "level"], 3]], 1],
-      "type": "line",
-      "paint": {"line-color": "#00a000", "line-width": {"stops": [[14, 0], [20, 2]]}, "line-dasharray": [1, 2]},
-      "minzoom": 14,
-      "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
-    },
-    {
-      "id": "elevation_difference_contour_0.666",
-      "source": "elevation_difference_contours",
-      "source-layer": "contours",
-      "filter": ["==", ["round", ["*", ["get", "level"], 3]], 2],
-      "type": "line",
-      "paint": {"line-color": "#c6eac6", "line-width": {"stops": [[14, 0], [20, 2]]}},
-      "minzoom": 14,
-      "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
-    },
-    {
-      "id": "elevation_difference_contour_1",
-      "source": "elevation_difference_contours",
-      "source-layer": "contours",
-      "filter": ["==", ["round", ["*", ["get", "level"], 3]], 3],
-      "type": "line",
-      "paint": {"line-color": "#aadfaa", "line-width": {"stops": [[14, 0], [20, 2]]}},
-      "minzoom": 14,
-      "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
-    },
-    {
-      "id": "elevation_difference_contour_1.333",
-      "source": "elevation_difference_contours",
-      "source-layer": "contours",
-      "filter": ["==", ["round", ["*", ["get", "level"], 3]], 4],
-      "type": "line",
-      "paint": {"line-color": "#8ed58e", "line-width": {"stops": [[14, 0], [20, 2]]}},
-      "minzoom": 14,
-      "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
-    },
-    {
-      "id": "elevation_difference_contour_1.666",
-      "source": "elevation_difference_contours",
-      "source-layer": "contours",
-      "filter": ["==", ["round", ["*", ["get", "level"], 3]], 5],
-      "type": "line",
-      "paint": {"line-color": "#70ca70", "line-width": {"stops": [[14, 0], [20, 2]]}},
-      "minzoom": 14,
-      "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
-    },
-    {
-      "id": "elevation_difference_contour_2",
-      "source": "elevation_difference_contours",
-      "source-layer": "contours",
-      "filter": ["==", ["round", ["*", ["get", "level"], 3]], 6],
-      "type": "line",
-      "paint": {"line-color": "#54bf54", "line-width": {"stops": [[14, 0], [20, 2]]}},
-      "minzoom": 14,
-      "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
-    },
-    {
-      "id": "elevation_difference_contour_2.333",
-      "source": "elevation_difference_contours",
-      "source-layer": "contours",
-      "filter": ["==", ["round", ["*", ["get", "level"], 3]], 7],
-      "type": "line",
-      "paint": {"line-color": "#38b538", "line-width": {"stops": [[14, 0], [20, 2]]}},
-      "minzoom": 14,
-      "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
-    },
-    {
-      "id": "elevation_difference_contour_2.666",
-      "source": "elevation_difference_contours",
-      "source-layer": "contours",
-      "filter": ["==", ["round", ["*", ["get", "level"], 3]], 8],
-      "type": "line",
-      "paint": {"line-color": "#1caa1c", "line-width": {"stops": [[14, 0], [20, 2]]}},
-      "minzoom": 14,
-      "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
-    },
-    {
-      "id": "elevation_difference_contour_3",
-      "source": "elevation_difference_contours",
-      "source-layer": "contours",
-      "filter": ["==", ["round", ["*", ["get", "level"], 3]], 9],
+      "filter": [">", ["get", "level"], 0],
       "type": "line",
       "paint": {"line-color": "#00a000", "line-width": {"stops": [[14, 0], [20, 2]]}},
       "minzoom": 14,
