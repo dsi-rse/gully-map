@@ -4,6 +4,7 @@
   import { MapLibre } from "svelte-maplibre";
   import { PMTiles, Protocol } from "pmtiles";
   import upng from "upng-js";
+  import { getDistance } from "geolib";
   import { parquetRead } from "hyparquet";
 
   import mapStyle from "./map-style.json";
@@ -111,64 +112,6 @@
     }
   }
 
-  const TILE_SIZE = 256;
-  const elevation2013 = new PMTiles("https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/elevation-2013.pmtiles");
-  const elevation2022 = new PMTiles("https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/elevation-2022.pmtiles");
-
-  async function tile_and_pixel_position(event, tile_z) {
-    const lng = event.lngLat.lng;
-    const lat = event.lngLat.lat;
-
-    const tile_x = Math.floor((lng + 180) / 360 * Math.pow(2, tile_z));
-    const tile_y = Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, tile_z));
-
-    const scale = TILE_SIZE * Math.pow(2, tile_z);
-    const world_x = (lng + 180) / 360;
-    const sinLat = Math.sin(lat * Math.PI / 180);
-    const world_y = 0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI);
-    const pixel_x = Math.round(world_x * scale);
-    const pixel_y = Math.round(world_y * scale);
-
-    const tile_pixel_x = pixel_x % TILE_SIZE;
-    const tile_pixel_y = pixel_y % TILE_SIZE;
-
-    return [tile_x, tile_y, tile_pixel_x, tile_pixel_y];
-  }
-
-  async function get_elevation(event, tile_z) {
-    const [tile_x, tile_y, tile_pixel_x, tile_pixel_y] = await tile_and_pixel_position(event, tile_z);
-    const index = tile_pixel_y * TILE_SIZE + tile_pixel_x;
-
-    const response2013_promise = elevation2013.getZxy(tile_z, tile_x, tile_y);
-    const response2022_promise = elevation2022.getZxy(tile_z, tile_x, tile_y);
-    const response2013 = await response2013_promise;
-    const response2022 = await response2022_promise;
-    if (response2013) {
-      const img = upng.decode(response2013.data);
-      const rgba = upng.toRGBA8(img)[0];  // first and only frame
-      const view = new DataView(rgba, 0, rgba.length);
-      const value = view.getFloat32(4 * index, true);
-      if (value < 3e38) {
-        document.getElementById("elevation_2013").innerHTML = `${value} meters`;
-      }
-      else {
-        document.getElementById("elevation_2013").innerHTML = "out of bounds";
-      }
-    }
-    if (response2022) {
-      const img = upng.decode(response2022.data);
-      const rgba = upng.toRGBA8(img)[0];  // first and only frame
-      const view = new DataView(rgba, 0, rgba.length);
-      const value = view.getFloat32(4 * index, true);
-      if (value < 3e38) {
-        document.getElementById("elevation_2022").innerHTML = `${value} meters`;
-      }
-      else {
-        document.getElementById("elevation_2022").innerHTML = "out of bounds";
-      }
-    }
-  }
-
   let checkboxUserEnabled = false;
   let shiftDown = false;
 
@@ -253,13 +196,13 @@
     if (last[0] !== here[0] || last[1] !== here[1]) {
       drawPoints.push(here);
       updateDrawLine();
-      drawPlot(drawPoints);
+      updatePlot(drawPoints, false);
     }
   }
 
   function finishFreehand() {
     if (drawState === "freehand" && drawPoints.length > 1) {
-      drawPlot(drawPoints);
+      updatePlot(drawPoints, true);
     }
     cancelDrawing();
   }
@@ -288,7 +231,7 @@
     }
     drawPoints[1] = [e.lngLat.lng, e.lngLat.lat];
     updateDrawLine();
-    drawPlot(interpolatePoints(drawPoints));
+    updatePlot(interpolatePoints(drawPoints), false);
   }
 
   function finishStraightLine(e) {
@@ -296,7 +239,7 @@
       return;
     }
     drawPoints[1] = [e.lngLat.lng, e.lngLat.lat];
-    drawPlot(interpolatePoints(drawPoints));
+    updatePlot(interpolatePoints(drawPoints), true);
     cancelDrawing();
   }
 
@@ -354,8 +297,194 @@
     }
   }
 
-  function drawPlot(coords) {
-    console.log(coords.length);
+  const MAX_TILES_PER_QUERY = 10;
+  const CHECK_TIMEOUT = 100;  // ms
+
+  function updatePlot(coords, last) {
+    const num_tiles = (new Set(coords.map(([lng, lat]) => tileIndex(lng, lat).join(":")))).size;
+
+    if (num_tiles > MAX_TILES_PER_QUERY) {
+      document.getElementById("line-is-too-long").style.display = "block";
+      return;
+    }
+    document.getElementById("line-is-too-long").style.display = "none";
+
+    const firstPoint = { longitude: coords[0][0], latitude: coords[0][1] };
+    const distances = coords.map(([lng, lat]) => getDistance(firstPoint, { longitude: lng, latitude: lat }, 0.01));
+
+    const tiles = coords.map(([lng, lat]) => getTile(...tileIndex(lng, lat)));
+    const pixelIndexes = coords.map(([lng, lat]) => pixelIndex(lng, lat));
+
+    if (last) {
+      async function checkUntilDone() {
+        while (true) {
+          const isWaiting = tiles.some(tile => tile.waiting());
+          const values2013 = tiles.map((tile, i) => tile.value2013(...pixelIndexes[i]));
+          const values2022 = tiles.map((tile, i) => tile.value2022(...pixelIndexes[i]));
+          drawPlot(distances, values2013, values2022);
+
+          if (!isWaiting) {
+            break;
+          }
+          await new Promise(resolve => setTimeout(resolve, CHECK_TIMEOUT));
+        }
+      }
+      checkUntilDone();
+    }
+    else {
+      const values2013 = tiles.map((tile, i) => tile.value2013(...pixelIndexes[i]));
+      const values2022 = tiles.map((tile, i) => tile.value2022(...pixelIndexes[i]));
+      drawPlot(distances, values2013, values2022);
+    }
+  }
+
+  function drawPlot(distances, values2013, values2022) {
+    // console.log("drawPlot", distances, values2013, values2022);
+  }
+
+  const TILE_SIZE = 256;
+  const TILE_Z = 17
+  const elevation2013 = new PMTiles("https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/elevation-2013.pmtiles");
+  const elevation2022 = new PMTiles("https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/elevation-2022.pmtiles");
+
+  const TILE_CACHE_SIZE = 100;  // number of tiles to keep in memory
+  let tileCache = {};
+  let tileCacheOrder = [];  // first is oldest, last is newest
+
+  function getTile(tile_x, tile_y) {
+    const key = `${tile_x}:${tile_y}`;
+
+    if (tileCache.hasOwnProperty(key)) {
+      // "touch" this tile, moving it to the top of the cache, and return it
+      const index = tileCacheOrder.indexOf(key);
+      if (index < tileCacheOrder.length - 1) {
+        tileCacheOrder.splice(index, 1);
+        tileCacheOrder.push(key);
+      }
+      return tileCache[key];
+    }
+    else {
+      // actually download the tile
+      const tile = downloadTile(tile_x, tile_y);
+
+      // add the tile to the top of the cache, possibly evicting the bottom
+      tileCache[key] = tile;
+      tileCacheOrder.push(key);
+      if (tileCacheOrder.length > TILE_CACHE_SIZE) {
+        delete tileCache[tileCacheOrder[0]];
+        tileCacheOrder.shift();
+      }
+
+      return tile;
+    }
+  }
+
+  function downloadTile(tile_x, tile_y) {
+    function toView(response) {
+      if (response) {
+        const img = upng.decode(response.data);
+        const rgba = upng.toRGBA8(img)[0];  // first and only frame
+        return new DataView(rgba, 0, rgba.length);
+      }
+      else {
+        return null;
+      }
+    }
+
+    function getValue(view, x, y) {
+      if (view  &&  0 <= x  &&  x < TILE_SIZE  &&  0 <= y  &&  y < TILE_SIZE) {
+        const index = y * TILE_SIZE + x;
+        const value = view.getFloat32(4 * index, true);
+        return value < 3e38 ? value : null;
+      }
+      else {
+        return null;
+      }
+    }
+
+    let promise2013 = elevation2013.getZxy(TILE_Z, tile_x, tile_y);
+    let view2013 = null;
+    let errors2013 = [];
+    let retries2013 = 3;
+    let waiting2013 = true;
+
+    function handleError2013(error) {
+      errors2013.push(error);
+      if (retries2013 > 0) {
+        retries2013--;
+        promise2013 = elevation2013.getZxy(TILE_Z, tile_x, tile_y);
+        promise2013.then(
+          response => { view2013 = toView(response);  waiting2013 = false; },
+          handleError2013,
+        );
+      }
+      else {
+        waiting2013 = false;
+      }
+    }
+    promise2013.then(
+      response => { view2013 = toView(response);  waiting2013 = false; },
+      handleError2013,
+    );
+
+    let promise2022 = elevation2022.getZxy(TILE_Z, tile_x, tile_y);
+    let view2022 = null;
+    let errors2022 = [];
+    let retries2022 = 3;
+    let waiting2022 = true;
+
+    function handleError2022(error) {
+      errors2022.push(error);
+      if (retries2022 > 0) {
+        retries2022--;
+        promise2022 = elevation2022.getZxy(TILE_Z, tile_x, tile_y);
+        promise2022.then(
+          response => { view2022 = toView(response);  waiting2022 = false; },
+          handleError2022,
+        );
+      }
+      else {
+        waiting2022 = false;
+      }
+    }
+    promise2022.then(
+      response => { view2022 = toView(response);  waiting2022 = false; },
+      handleError2022,
+    );
+
+    return {
+      tile_x: tile_x,
+      tile_y: tile_y,
+      view2013: () => view2013,
+      view2022: () => view2022,
+      value2013: (x, y) => getValue(view2013, x, y),
+      value2022: (x, y) => getValue(view2022, x, y),
+      errors2013: () => errors2013,
+      errors2022: () => errors2022,
+      retries2013: () => retries2013,
+      retries2022: () => retries2022,
+      waiting2013: () => waiting2013,
+      waiting2022: () => waiting2022,
+      waiting: () => waiting2013  ||  waiting2022,
+    };
+  }
+
+  function tileIndex(lng, lat) {
+    const tile_x = Math.floor((lng + 180) / 360 * Math.pow(2, TILE_Z));
+    const tile_y = Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, TILE_Z));
+    return [tile_x, tile_y];
+  }
+
+  function pixelIndex(lng, lat) {
+    const scale = TILE_SIZE * Math.pow(2, TILE_Z);
+    const world_x = (lng + 180) / 360;
+    const sinLat = Math.sin(lat * Math.PI / 180);
+    const world_y = 0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI);
+    const pixel_x = Math.round(world_x * scale);
+    const pixel_y = Math.round(world_y * scale);
+    const x = pixel_x % TILE_SIZE;
+    const y = pixel_y % TILE_SIZE;
+    return [x, y];
   }
 
   // fetch("https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/gully-detection-pass3-graph.parquet").then(async response => {
@@ -423,7 +552,6 @@
 <b>Address:</b> ${f.address}, ${f.city}<br>
 ${f.type}; ${f.description}`;
         }
-        get_elevation(e, 17);
       }}
       />
   </div>
@@ -563,9 +691,7 @@ ${f.type}; ${f.description}`;
         </div>
       </div>
       <div class="group">
-        <h3>Temporary</h3>
-        <div>Elevation in 2013: <span id="elevation_2013">click somewhere</span></div>
-        <div>Elevation in 2022: <span id="elevation_2022">click somewhere</span></div>
+        <div id="line-is-too-long" style="color: magenta; font-weight: bold; display: none;">Line is too long to measure!</div>
       </div>
     </div>
   </div>
