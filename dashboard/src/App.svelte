@@ -253,12 +253,13 @@
     if (last[0] !== here[0] || last[1] !== here[1]) {
       drawPoints.push(here);
       updateDrawLine();
+      drawPlot(drawPoints);
     }
   }
 
   function finishFreehand() {
     if (drawState === "freehand" && drawPoints.length > 1) {
-      handleDrawn(drawPoints);
+      drawPlot(drawPoints);
     }
     cancelDrawing();
   }
@@ -270,12 +271,24 @@
     updateDrawLine();
   }
 
+  function interpolatePoints(coords) {
+    // interpolate 100 intermediate points
+    return Array.from({ length: 100 }, (_, i) => {
+      const t = i / 99;
+      return [
+        coords[0][0] * (1 - t) + coords[coords.length - 1][0] * t,
+        coords[0][1] * (1 - t) + coords[coords.length - 1][1] * t,
+      ];
+    });
+  }
+
   function updateStraightLine(e) {
     if (drawState !== "awaiting-second-click") {
       return;
     }
     drawPoints[1] = [e.lngLat.lng, e.lngLat.lat];
     updateDrawLine();
+    drawPlot(interpolatePoints(drawPoints));
   }
 
   function finishStraightLine(e) {
@@ -283,17 +296,7 @@
       return;
     }
     drawPoints[1] = [e.lngLat.lng, e.lngLat.lat];
-
-    // interpolate 100 intermediate points
-    drawPoints = Array.from({ length: 100 }, (_, i) => {
-      const t = i / 99;
-      return [
-        drawPoints[0][0] * (1 - t) + drawPoints[1][0] * t,
-        drawPoints[0][1] * (1 - t) + drawPoints[1][1] * t,
-      ];
-    });
-
-    handleDrawn(drawPoints);
+    drawPlot(interpolatePoints(drawPoints));
     cancelDrawing();
   }
 
@@ -351,8 +354,8 @@
     }
   }
 
-  function handleDrawn(coords) {
-    console.log(JSON.stringify(coords));
+  function drawPlot(coords) {
+    console.log(coords.length);
   }
 
   // fetch("https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/gully-detection-pass3-graph.parquet").then(async response => {
