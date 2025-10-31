@@ -56,6 +56,28 @@
     }
   }
 
+  function updatePointOnCurve(index) {
+    if (index  &&  drawPoints  &&  drawPoints.length > index) {
+      if (map) {
+        let source = map.getSource("draw-point");
+        if (source) {
+          source.setData({
+            type: "FeatureCollection",
+            features: [
+              {
+                "type": "Feature",
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [drawPoints[index][0], drawPoints[index][1]],
+                },
+              },
+            ],
+          });
+        }
+      }
+    }
+  }
+
   function hideBaselayer(e) {
     map.setPaintProperty("contrast", "background-opacity", 1 - e.target.value);
   }
@@ -81,6 +103,16 @@
         ],
         scales: { "x": { time: false } },
         padding: [8, 8, 0, 0],
+        cursor: {
+          show: true,
+        },
+        hooks: {
+          setCursor: [
+            (u) => {
+              updatePointOnCurve(u.cursor.idx);
+            },
+          ],
+        },
       },
       [
         [], [], [],
@@ -101,6 +133,16 @@
         ],
         scales: { "x": { time: false } },
         padding: [8, 8, 0, 0],
+        cursor: {
+          show: true,
+        },
+        hooks: {
+          setCursor: [
+            (u) => {
+              updatePointOnCurve(u.cursor.idx);
+            },
+          ],
+        },
       },
       [
         [], [], [],
@@ -265,6 +307,10 @@
     drawState = "freehand";
     drawPoints = [[e.lngLat.lng, e.lngLat.lat]];
     updateDrawLine();
+
+    document.getElementById("elevation_along_line").scrollIntoView(
+      { behavior: "smooth", block: "start" }
+    );
   }
 
   function updateFreehand(e) {
@@ -293,6 +339,10 @@
     const pt = [e.lngLat.lng, e.lngLat.lat];
     drawPoints = [pt, pt];
     updateDrawLine();
+
+    document.getElementById("elevation_along_line").scrollIntoView(
+      { behavior: "smooth", block: "start" }
+    );
   }
 
   function interpolatePoints(coords) {
@@ -310,17 +360,19 @@
     if (drawState !== "awaiting-second-click") {
       return;
     }
-    drawPoints[1] = [e.lngLat.lng, e.lngLat.lat];
+    drawPoints[drawPoints.length - 1] = [e.lngLat.lng, e.lngLat.lat];
+    drawPoints.splice(0, drawPoints.length, ...interpolatePoints(drawPoints));
     updateDrawLine();
-    updatePlot(interpolatePoints(drawPoints), false);
+    updatePlot(drawPoints, false);
   }
 
   function finishStraightLine(e) {
     if (drawState !== "awaiting-second-click") {
       return;
     }
-    drawPoints[1] = [e.lngLat.lng, e.lngLat.lat];
-    updatePlot(interpolatePoints(drawPoints), true);
+    drawPoints[drawPoints.length - 1] = [e.lngLat.lng, e.lngLat.lat];
+    drawPoints.splice(0, drawPoints.length, ...interpolatePoints(drawPoints));
+    updatePlot(drawPoints, true);
     cancelDrawing();
   }
 
@@ -365,14 +417,22 @@
 
   function updateDrawLine() {
     if (map) {
-      let source = map.getSource("draw-line");
-      if (source) {
-        source.setData({
+      const source1 = map.getSource("draw-line");
+      if (source1) {
+        source1.setData({
           type: "Feature",
           geometry: {
             type: "LineString",
             coordinates: drawPoints  &&  drawPoints.length >= 2 ? drawPoints : [],
           },
+        });
+      }
+
+      const source2 = map.getSource("draw-point");
+      if (source2) {
+        source2.setData({
+          type: "FeatureCollection",
+          features: [],
         });
       }
     }
@@ -573,11 +633,11 @@
     }
 
     if (values2013.every(x => x === null)  &&  values2022.every(x => x === null)) {
-      document.getElementById("elevation_plot").style.display = "none";
-      document.getElementById("elevation_difference_plot").style.display = "none";
+      document.getElementById("elevation_plot").style.visibility = "hidden";
+      document.getElementById("elevation_difference_plot").style.visibility = "hidden";
       return;
     }
-    document.getElementById("elevation_plot").style.display = "block";
+    document.getElementById("elevation_plot").style.visibility = "visible";
 
     const [elevation_low, elevation_high] = low_high_percentile(values2013.concat(values2022), 0.05);
     elevation_plot.setData([distances, values2013, values2022]);
@@ -588,10 +648,10 @@
       (x, i) => x === null  &&  values2013[i] === null ? null : x - values2013[i]
     );
     if (difference.every(x => x === null)) {
-      document.getElementById("elevation_difference_plot").style.display = "none";
+      document.getElementById("elevation_difference_plot").style.visibility = "hidden";
       return;
     }
-    document.getElementById("elevation_difference_plot").style.display = "block";
+    document.getElementById("elevation_difference_plot").style.visibility = "visible";
 
     const [difference_low, difference_high] = low_high_percentile(difference, 0.05);
     elevation_difference_plot.setData([distances, difference]);
@@ -776,7 +836,7 @@ ${f.type}; ${f.description}`;
           <label><input type="checkbox" id="elevation_difference_contours_fill" checked on:change={() => toggleElevationContours()}> ...and fill in the polygons</label>
         </div>
       </div>
-      <div class="group">
+      <div class="group" id="elevation_along_line">
         <h3>Elevation along line</h3>
         <div>
           <label for="draw-toggle"><input id="draw-toggle" type="checkbox" bind:checked={drawToggleChecked} on:change={onDrawToggleChange}> Draw line instead of moving map</label>
@@ -789,10 +849,10 @@ ${f.type}; ${f.description}`;
         <div id="line-is-too-long" style="color: magenta; font-weight: bold; display: none;">Line is too long to measure!</div>
       </div>
       <div id="elevation_plot_container">
-        <div id="elevation_plot" style="display: none;"></div>
-        <div id="elevation_difference_plot" style="display: none;"></div>
+        <div id="elevation_plot" style="visibility: hidden;"></div>
+        <div id="elevation_difference_plot" style="visibility: hidden;"></div>
       </div>
-      <div style="height: 300px;"></div>
+      <div style="height: 100px;"></div>
     </div>
   </div>
 </div>

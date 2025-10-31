@@ -103,6 +103,10 @@
     "draw-line": {
       "type": "geojson",
       "data": {"type": "Feature", "geometry": {"type": "LineString", "coordinates": []}}
+    },
+    "draw-point": {
+      "type": "geojson",
+      "data": {"type": "FeatureCollection", "features": []}
     }
   },
   "sprite": "https://nst-guide.github.io/osm-liberty-topo/sprites/osm-liberty-topo",
@@ -2414,10 +2418,28 @@
       "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
     },
     {
+      "id": "draw-line-outline",
+      "source": "draw-line",
+      "type": "line",
+      "paint": {"line-color": "white", "line-width": 6}
+    },
+    {
+      "id": "draw-point-outline",
+      "source": "draw-point",
+      "type": "circle",
+      "paint": {"circle-color": "white", "circle-radius": 8}
+    },
+    {
       "id": "draw-line",
       "source": "draw-line",
       "type": "line",
       "paint": {"line-color": "magenta", "line-width": 3}
+    },
+    {
+      "id": "draw-point",
+      "source": "draw-point",
+      "type": "circle",
+      "paint": {"circle-color": "magenta", "circle-radius": 6}
     }
   ],
   "id": "osm-liberty-modified"
