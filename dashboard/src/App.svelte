@@ -24,7 +24,7 @@
   let elevation_difference_plot;
 
   function elevationPlotWidth() {
-    return document.getElementById("elevation_plot")?.clientWidth  ||  300;
+    return document.getElementById("elevation_plot_container")?.clientWidth  ||  300;
   }
 
   function elevationPlotHeight() {
@@ -565,18 +565,38 @@
   }
 
   function drawPlot(distances, values2013, values2022) {
+    function low_high_percentile(data, p) {
+      const sorted = data.filter(Number.isFinite).sort((a, b) => a - b);
+      const low_index = Math.ceil((sorted.length - 1) * p);
+      const high_index = Math.floor((sorted.length - 1) * (1 - p));
+      return [sorted[low_index], sorted[high_index]];
+    }
+
     if (values2013.every(x => x === null)  &&  values2022.every(x => x === null)) {
       document.getElementById("elevation_plot").style.display = "none";
       document.getElementById("elevation_difference_plot").style.display = "none";
       return;
     }
     document.getElementById("elevation_plot").style.display = "block";
+
+    const [elevation_low, elevation_high] = low_high_percentile(values2013.concat(values2022), 0.05);
+    elevation_plot.setData([distances, values2013, values2022]);
+    elevation_plot.setScale("x", { min: 0, max: distances[distances.length - 1] });
+    elevation_plot.setScale("y", { min: elevation_low - 5, max: elevation_high + 5 });
+
+    const difference = values2022.map(
+      (x, i) => x === null  &&  values2013[i] === null ? null : x - values2013[i]
+    );
+    if (difference.every(x => x === null)) {
+      document.getElementById("elevation_difference_plot").style.display = "none";
+      return;
+    }
     document.getElementById("elevation_difference_plot").style.display = "block";
 
-    elevation_plot.setData([distances, values2013, values2022]);
-    elevation_difference_plot.setData([distances, values2022.map(
-      (x, i) => x === null  &&  values2013[i] === null ? null : x - values2013[i]
-    )]);
+    const [difference_low, difference_high] = low_high_percentile(difference, 0.05);
+    elevation_difference_plot.setData([distances, difference]);
+    elevation_difference_plot.setScale("x", { min: 0, max: distances[distances.length - 1] });
+    elevation_difference_plot.setScale("y", { min: difference_low - 2, max: difference_high + 2 });
   }
 
   const highres_layers = [
@@ -768,8 +788,10 @@ ${f.type}; ${f.description}`;
       <div class="group">
         <div id="line-is-too-long" style="color: magenta; font-weight: bold; display: none;">Line is too long to measure!</div>
       </div>
-      <div id="elevation_plot" style="display: none;"></div>
-      <div id="elevation_difference_plot" style="display: none;"></div>
+      <div id="elevation_plot_container">
+        <div id="elevation_plot" style="display: none;"></div>
+        <div id="elevation_difference_plot" style="display: none;"></div>
+      </div>
       <div style="height: 300px;"></div>
     </div>
   </div>
