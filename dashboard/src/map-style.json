@@ -43,14 +43,23 @@
     "aerial_2013": {
       "type": "raster",
       "tiles": ["https://wayback.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/WMTS/1.0.0/default028mm/MapServer/tile/11019/{z}/{y}/{x}"],
+      "attribution": "<a href=\"https://sonomavegmap.org/\" target=\"_blank\">© SonomaVegMap</a> (CC BY-SA)",
       "minzoom": 14,
       "maxzoom": 24
     },
     "aerial_2021": {
       "type": "raster",
       "tiles": ["https://wayback.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/WMTS/1.0.0/default028mm/MapServer/tile/45134/{z}/{y}/{x}"],
+      "attribution": "<a href=\"https://sonomavegmap.org/\" target=\"_blank\">© SonomaVegMap</a> (CC BY-SA)",
       "minzoom": 12,
       "maxzoom": 20
+    },
+    "elevation_difference": {
+      "type": "raster",
+      "tiles": ["pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/elevation-2022-minus-2013.pmtiles/{z}/{x}/{y}"],
+      "attribution": "<a href=\"https://sonomavegmap.org/\" target=\"_blank\">© SonomaVegMap</a> (CC BY-SA)",
+      "tileSize": 512,
+      "maxzoom": 16
     },
     "parcels": {
       "type": "vector",
@@ -59,32 +68,45 @@
     "ladder_fuels_4m": {
       "type": "raster",
       "tiles": ["pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/sonoma-county-ladder-fuels-4m.pmtiles/{z}/{x}/{y}"],
+      "attribution": "<a href=\"https://sonomavegmap.org/\" target=\"_blank\">© SonomaVegMap</a> (CC BY-SA)",
       "tileSize": 512,
       "maxzoom": 13
     },
     "ladder_fuels_8m": {
       "type": "raster",
       "tiles": ["pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/sonoma-county-ladder-fuels-8m.pmtiles/{z}/{x}/{y}"],
+      "attribution": "<a href=\"https://sonomavegmap.org/\" target=\"_blank\">© SonomaVegMap</a> (CC BY-SA)",
       "tileSize": 512,
       "maxzoom": 13
     },
     "gully_detection_pass2": {
       "type": "raster",
       "tiles": ["pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/gully-detection-pass2.pmtiles/{z}/{x}/{y}"],
+      "attribution": "<a href=\"https://datascience.uchicago.edu/\" target=\"_blank\">© U. Chicago DSI</a>",
       "tileSize": 512,
       "maxzoom": 16
     },
     "gully_detection_pass3": {
       "type": "vector",
       "url": "pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/gully-detection-pass3-graph.pmtiles",
+      "attribution": "<a href=\"https://datascience.uchicago.edu/\" target=\"_blank\">© U. Chicago DSI</a>",
       "minzoom": 9,
       "maxzoom": 16
     },
-    "elevation_difference": {
+    "elevation_difference_contours": {
       "type": "vector",
       "url": "pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/elevation-2022-minus-2013-contours.pmtiles",
+      "attribution": "<a href=\"https://sonomavegmap.org/\" target=\"_blank\">© SonomaVegMap</a> (CC BY-SA)",
       "minzoom": 9,
       "maxzoom": 24
+    },
+    "draw-line": {
+      "type": "geojson",
+      "data": {"type": "Feature", "geometry": {"type": "LineString", "coordinates": []}}
+    },
+    "draw-point": {
+      "type": "geojson",
+      "data": {"type": "FeatureCollection", "features": []}
     }
   },
   "sprite": "https://nst-guide.github.io/osm-liberty-topo/sprites/osm-liberty-topo",
@@ -2288,6 +2310,17 @@
       "layout": {"visibility": "none"}
     },
     {
+      "id": "elevation_difference",
+      "type": "raster",
+      "source": "elevation_difference",
+      "layout": {"visibility": "none"}
+    },
+    {
+      "id": "contrast",
+      "type": "background",
+      "paint": {"background-color": "white", "background-opacity": 0}
+    },
+    {
       "id": "parcels",
       "source": "parcels",
       "source-layer": "parcels",
@@ -2327,7 +2360,7 @@
       "layout": {"visibility": "none"}
     },
     {
-      "id": "gully_detection_pass3_underline",
+      "id": "gully_detection_pass3_outline",
       "source": "gully_detection_pass3",
       "source-layer": "gully_detection_pass3_graph",
       "type": "line",
@@ -2345,44 +2378,68 @@
       "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
     },
     {
-      "id": "elevation_difference_minus_outline",
-      "source": "elevation_difference",
+      "id": "elevation_difference_contour_minus_fill",
+      "source": "elevation_difference_contours",
       "source-layer": "contours",
+      "type": "fill",
       "filter": ["<", ["get", "level"], 0],
-      "type": "line",
-      "paint": {"line-color": "white", "line-width": {"stops": [[14, 0], [16, 6]]}, "line-opacity": 0.5},
+      "paint": {"fill-color": "#6f00ff", "fill-opacity": {"stops": [[14, 0], [16, 0.05]]}},
       "minzoom": 14,
-      "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
+      "layout": {"visibility": "none"}
     },
     {
-      "id": "elevation_difference_plus_outline",
-      "source": "elevation_difference",
+      "id": "elevation_difference_contour_plus_fill",
+      "source": "elevation_difference_contours",
       "source-layer": "contours",
+      "type": "fill",
       "filter": [">", ["get", "level"], 0],
-      "type": "line",
-      "paint": {"line-color": "white", "line-width": {"stops": [[14, 0], [16, 6]]}, "line-opacity": 0.5},
+      "paint": {"fill-color": "#00a000", "fill-opacity": {"stops": [[14, 0], [16, 0.05]]}},
       "minzoom": 14,
-      "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
+      "layout": {"visibility": "none"}
     },
     {
-      "id": "elevation_difference_minus",
-      "source": "elevation_difference",
+      "id": "elevation_difference_contour_minus",
+      "source": "elevation_difference_contours",
       "source-layer": "contours",
+      "type": "line",
       "filter": ["<", ["get", "level"], 0],
-      "type": "line",
-      "paint": {"line-color": "#6f00ff", "line-width": {"stops": [[14, 0], [16, 2]]}, "line-dasharray": [1, 2]},
+      "paint": {"line-color": "#6f00ff", "line-width": {"stops": [[14, 0], [20, 2]]}},
       "minzoom": 14,
       "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
     },
     {
-      "id": "elevation_difference_plus",
-      "source": "elevation_difference",
+      "id": "elevation_difference_contour_plus",
+      "source": "elevation_difference_contours",
       "source-layer": "contours",
-      "filter": [">", ["get", "level"], 0],
       "type": "line",
-      "paint": {"line-color": "#6f00ff", "line-width": {"stops": [[14, 0], [16, 2]]}},
+      "filter": [">", ["get", "level"], 0],
+      "paint": {"line-color": "#00a000", "line-width": {"stops": [[14, 0], [20, 2]]}},
       "minzoom": 14,
       "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
+    },
+    {
+      "id": "draw-line-outline",
+      "source": "draw-line",
+      "type": "line",
+      "paint": {"line-color": "white", "line-width": 6}
+    },
+    {
+      "id": "draw-point-outline",
+      "source": "draw-point",
+      "type": "circle",
+      "paint": {"circle-color": "white", "circle-radius": 8}
+    },
+    {
+      "id": "draw-line",
+      "source": "draw-line",
+      "type": "line",
+      "paint": {"line-color": "magenta", "line-width": 3}
+    },
+    {
+      "id": "draw-point",
+      "source": "draw-point",
+      "type": "circle",
+      "paint": {"circle-color": "magenta", "circle-radius": 6}
     }
   ],
   "id": "osm-liberty-modified"
