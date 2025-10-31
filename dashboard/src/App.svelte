@@ -2,10 +2,12 @@
   import { onMount } from "svelte";
   import maplibregl from "maplibre-gl";
   import { MapLibre } from "svelte-maplibre";
+  import { parquetRead } from "hyparquet";
   import { PMTiles, Protocol } from "pmtiles";
   import upng from "upng-js";
   import { getDistance } from "geolib";
-  import { parquetRead } from "hyparquet";
+  import uPlot from "uplot";
+  import "uplot/dist/uPlot.min.css";
 
   import mapStyle from "./map-style.json";
 
@@ -17,6 +19,17 @@
 
   let rightWidth = 0.35 * window.innerWidth;
   let horizontalPaneDragging = false;
+
+  let elevation_plot;
+  let elevation_difference_plot;
+
+  function elevationPlotWidth() {
+    return document.getElementById("elevation_plot")?.clientWidth  ||  300;
+  }
+
+  function elevationPlotHeight() {
+    return elevationPlotWidth() * 2/3;
+  }
 
   function startHorizontalPaneDrag(e: MouseEvent) {
     horizontalPaneDragging = true;
@@ -33,6 +46,13 @@
       let min = 200, max = window.innerWidth - 200;
       let x = Math.min(max, Math.max(min, e.clientX));
       rightWidth = window.innerWidth - x;
+
+      if (elevation_plot) {
+        elevation_plot.setSize({ width: elevationPlotWidth(), height: elevationPlotHeight() });
+      }
+      if (elevation_difference_plot) {
+        elevation_difference_plot.setSize({ width: elevationPlotWidth(), height: elevationPlotHeight() });
+      }
     }
   }
 
@@ -43,7 +63,51 @@
   onMount(() => {
     window.addEventListener("mousemove", onHorizontalPaneDrag);
     window.addEventListener("mouseup", stopHorizontalPaneDrag);
+
     document.getElementById("baselayer_slider").addEventListener("input", hideBaselayer);
+
+    elevation_plot = new uPlot(
+      {
+        width: elevationPlotWidth(),
+        height: elevationPlotHeight(),
+        series: [
+          { label: "distance" },
+          { label: "2013 elevation", stroke: "blue" },
+          { label: "2022 elevation", stroke: "orange" },
+        ],
+        axes: [
+          { label: "distance along curve (meters)", labelFont: "12px Arial", size: 40 },
+          { label: "elevation (meters)", labelFont: "12px Arial", size: 50 },
+        ],
+        scales: { "x": { time: false } },
+        padding: [8, 8, 0, 0],
+      },
+      [
+        [], [], [],
+      ],
+      document.getElementById("elevation_plot"),
+    );
+    elevation_difference_plot = new uPlot(
+      {
+        width: elevationPlotWidth(),
+        height: elevationPlotHeight(),
+        series: [
+          { label: "distance" },
+          { label: "elevation difference", stroke: "blue" },
+        ],
+        axes: [
+          { label: "distance along curve (meters)", labelFont: "12px Arial", size: 40 },
+          { label: "2022 minus 2013 (meters)", labelFont: "12px Arial", size: 50 },
+        ],
+        scales: { "x": { time: false } },
+        padding: [8, 8, 0, 0],
+      },
+      [
+        [], [], [],
+      ],
+      document.getElementById("elevation_difference_plot"),
+    );
+
     return () => {
       window.removeEventListener("mousemove", onHorizontalPaneDrag);
       window.removeEventListener("mouseup", stopHorizontalPaneDrag);
@@ -111,6 +175,23 @@
       map.setLayoutProperty("elevation_difference_contour_plus", "visibility", yes_contours ? "visible" : "none");
     }
   }
+
+  // fetch("https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/gully-detection-pass3-graph.parquet").then(async response => {
+  //   if (!response.ok) {
+  //     return;
+  //   }
+  //   let parquetFile = await response.arrayBuffer();
+
+  //   new Promise((onComplete) => parquetRead({
+  //     file: parquetFile,
+  //     columns: ["paths_lon", "paths_lat"],
+  //     rowStart: 0,
+  //     rowEnd: 139,  // number of watersheds in Sonoma County
+  //     onComplete,
+  //   })).then(data => {
+  //     console.log(data);
+  //   });
+  // });
 
   let checkboxUserEnabled = false;
   let shiftDown = false;
@@ -297,51 +378,6 @@
     }
   }
 
-  const MAX_TILES_PER_QUERY = 10;
-  const CHECK_TIMEOUT = 100;  // ms
-
-  function updatePlot(coords, last) {
-    const num_tiles = (new Set(coords.map(([lng, lat]) => tileIndex(lng, lat).join(":")))).size;
-
-    if (num_tiles > MAX_TILES_PER_QUERY) {
-      document.getElementById("line-is-too-long").style.display = "block";
-      return;
-    }
-    document.getElementById("line-is-too-long").style.display = "none";
-
-    const firstPoint = { longitude: coords[0][0], latitude: coords[0][1] };
-    const distances = coords.map(([lng, lat]) => getDistance(firstPoint, { longitude: lng, latitude: lat }, 0.01));
-
-    const tiles = coords.map(([lng, lat]) => getTile(...tileIndex(lng, lat)));
-    const pixelIndexes = coords.map(([lng, lat]) => pixelIndex(lng, lat));
-
-    if (last) {
-      async function checkUntilDone() {
-        while (true) {
-          const isWaiting = tiles.some(tile => tile.waiting());
-          const values2013 = tiles.map((tile, i) => tile.value2013(...pixelIndexes[i]));
-          const values2022 = tiles.map((tile, i) => tile.value2022(...pixelIndexes[i]));
-          drawPlot(distances, values2013, values2022);
-
-          if (!isWaiting) {
-            break;
-          }
-          await new Promise(resolve => setTimeout(resolve, CHECK_TIMEOUT));
-        }
-      }
-      checkUntilDone();
-    }
-    else {
-      const values2013 = tiles.map((tile, i) => tile.value2013(...pixelIndexes[i]));
-      const values2022 = tiles.map((tile, i) => tile.value2022(...pixelIndexes[i]));
-      drawPlot(distances, values2013, values2022);
-    }
-  }
-
-  function drawPlot(distances, values2013, values2022) {
-    // console.log("drawPlot", distances, values2013, values2022);
-  }
-
   const TILE_SIZE = 256;
   const TILE_Z = 17
   const elevation2013 = new PMTiles("https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/elevation-2013.pmtiles");
@@ -487,22 +523,61 @@
     return [x, y];
   }
 
-  // fetch("https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/gully-detection-pass3-graph.parquet").then(async response => {
-  //   if (!response.ok) {
-  //     return;
-  //   }
-  //   let parquetFile = await response.arrayBuffer();
+  const MAX_TILES_PER_QUERY = 10;
+  const CHECK_TIMEOUT = 100;  // ms
 
-  //   new Promise((onComplete) => parquetRead({
-  //     file: parquetFile,
-  //     columns: ["paths_lon", "paths_lat"],
-  //     rowStart: 0,
-  //     rowEnd: 139,  // number of watersheds in Sonoma County
-  //     onComplete,
-  //   })).then(data => {
-  //     console.log(data);
-  //   });
-  // });
+  function updatePlot(coords, last) {
+    const num_tiles = (new Set(coords.map(([lng, lat]) => tileIndex(lng, lat).join(":")))).size;
+
+    if (num_tiles > MAX_TILES_PER_QUERY) {
+      document.getElementById("line-is-too-long").style.display = "block";
+      return;
+    }
+    document.getElementById("line-is-too-long").style.display = "none";
+
+    const firstPoint = { longitude: coords[0][0], latitude: coords[0][1] };
+    const distances = coords.map(([lng, lat]) => getDistance(firstPoint, { longitude: lng, latitude: lat }, 0.01));
+
+    const tiles = coords.map(([lng, lat]) => getTile(...tileIndex(lng, lat)));
+    const pixelIndexes = coords.map(([lng, lat]) => pixelIndex(lng, lat));
+
+    if (last) {
+      async function checkUntilDone() {
+        while (true) {
+          const isWaiting = tiles.some(tile => tile.waiting());
+          const values2013 = tiles.map((tile, i) => tile.value2013(...pixelIndexes[i]));
+          const values2022 = tiles.map((tile, i) => tile.value2022(...pixelIndexes[i]));
+          drawPlot(distances, values2013, values2022);
+
+          if (!isWaiting) {
+            break;
+          }
+          await new Promise(resolve => setTimeout(resolve, CHECK_TIMEOUT));
+        }
+      }
+      checkUntilDone();
+    }
+    else {
+      const values2013 = tiles.map((tile, i) => tile.value2013(...pixelIndexes[i]));
+      const values2022 = tiles.map((tile, i) => tile.value2022(...pixelIndexes[i]));
+      drawPlot(distances, values2013, values2022);
+    }
+  }
+
+  function drawPlot(distances, values2013, values2022) {
+    if (values2013.every(x => x === null)  &&  values2022.every(x => x === null)) {
+      document.getElementById("elevation_plot").style.display = "none";
+      document.getElementById("elevation_difference_plot").style.display = "none";
+      return;
+    }
+    document.getElementById("elevation_plot").style.display = "block";
+    document.getElementById("elevation_difference_plot").style.display = "block";
+
+    elevation_plot.setData([distances, values2013, values2022]);
+    elevation_difference_plot.setData([distances, values2022.map(
+      (x, i) => x === null  &&  values2013[i] === null ? null : x - values2013[i]
+    )]);
+  }
 
   const highres_layers = [
     "baselayer_aerial_2013",
@@ -693,6 +768,9 @@ ${f.type}; ${f.description}`;
       <div class="group">
         <div id="line-is-too-long" style="color: magenta; font-weight: bold; display: none;">Line is too long to measure!</div>
       </div>
+      <div id="elevation_plot" style="display: none;"></div>
+      <div id="elevation_difference_plot" style="display: none;"></div>
+      <div style="height: 200px;"></div>
     </div>
   </div>
 </div>
