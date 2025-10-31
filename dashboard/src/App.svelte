@@ -72,8 +72,8 @@
         height: elevationPlotHeight(),
         series: [
           { label: "distance" },
-          { label: "2013 elevation", stroke: "blue" },
-          { label: "2022 elevation", stroke: "orange" },
+          { label: "2013 elevation", stroke: "#ff7f0e" },
+          { label: "2022 elevation", stroke: "#1f77b4" },
         ],
         axes: [
           { label: "distance along curve (meters)", labelFont: "12px Arial", size: 40 },
@@ -93,7 +93,7 @@
         height: elevationPlotHeight(),
         series: [
           { label: "distance" },
-          { label: "elevation difference", stroke: "blue" },
+          { label: "elevation difference", stroke: "#2ca02c" },
         ],
         axes: [
           { label: "distance along curve (meters)", labelFont: "12px Arial", size: 40 },
@@ -770,7 +770,7 @@ ${f.type}; ${f.description}`;
       </div>
       <div id="elevation_plot" style="display: none;"></div>
       <div id="elevation_difference_plot" style="display: none;"></div>
-      <div style="height: 200px;"></div>
+      <div style="height: 300px;"></div>
     </div>
   </div>
 </div>
