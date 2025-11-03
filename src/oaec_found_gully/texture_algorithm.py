@@ -1,8 +1,11 @@
 import math
+import threading
+import queue
 
 import numpy as np
 import rasterio
 
+NUM_THREADS = 10
 
 def nextprod(a: list[int], x: int) -> int:
     """
@@ -136,15 +139,10 @@ def window_loop(shape, chunk, axis=0, reverse=False, overlap=0, offset=0):
 
 
 def texture_shading(dem_array: np.ndarray, alpha: float = 0.5):
-    out_array = np.zeros_like(dem_array)
-
     ysize, xsize = dem_array.shape
     chunk_y, chunk_x = 244, 225
     chunk_slice_x = ysize, chunk_x
     chunk_slice_y = chunk_y, xsize
-
-    mx_z_x = np.zeros(chunk_slice_x)
-    mx_z_y = np.zeros(chunk_slice_y)
 
     Ny = nextprod([2, 3, 5, 7], ysize)
     Nx = nextprod([2, 3, 5, 7], xsize)
@@ -152,25 +150,36 @@ def texture_shading(dem_array: np.ndarray, alpha: float = 0.5):
     fx = np.fft.rfftfreq(Nx)[np.newaxis, :]
     Hy, Hx = (fy**2) ** alpha, (fx**2) ** alpha
 
+    tasks = queue.Queue()
     for axis in [0, 1]:
         if axis == 0:
             chunk = chunk_x
-            mx_z = mx_z_x
-            N, H = Ny, Hy
         elif axis == 1:
             chunk = chunk_y
-            mx_z = mx_z_y
-            N, H = Nx, Hx
 
-        for mx_view_in, gdal_take, mx_view_out, gdal_put in window_loop(
-            shape=(xsize, ysize),
-            chunk=chunk,
-            axis=axis,
-        ):
+        for window in window_loop(shape=(xsize, ysize), chunk=chunk, axis=axis):
+            tasks.put((axis, window))
+
+    for _ in range(NUM_THREADS):
+        tasks.put(None)
+
+    out_array = np.zeros_like(dem_array)
+
+    def worker():
+        while True:
+            task = tasks.get()
+            if task is None:
+                break
+
+            axis, (mx_view_in, gdal_take, mx_view_out, gdal_put) = task
+
+            if axis == 0:
+                N, H = Ny, Hy
+            elif axis == 1:
+                N, H = Nx, Hx
+
             jstart, istart, jsize, isize = gdal_take
-            mx_z[mx_view_in] = dem_array[
-                istart : istart + isize, jstart : jstart + jsize
-            ]
+            mx_z = dem_array[istart : istart + isize, jstart : jstart + jsize]
 
             r = np.fft.rfft(mx_z, N, axis=axis) * H
             r = np.fft.irfft(r, axis=axis)
@@ -179,9 +188,15 @@ def texture_shading(dem_array: np.ndarray, alpha: float = 0.5):
             out = r[: mx_z.shape[0], : mx_z.shape[1]]
 
             jstart, istart, jsize, isize = gdal_put
-            out_array[istart : istart + isize, jstart : jstart + jsize] += out[
-                mx_view_out
-            ]
+            out_array[istart : istart + isize, jstart : jstart + jsize] += out[mx_view_out]
+
+    threads = [threading.Thread(target=worker) for _ in range(NUM_THREADS)]
+
+    for thread in threads:
+        thread.start()
+
+    for thread in threads:
+        thread.join()
 
     return out_array
 
