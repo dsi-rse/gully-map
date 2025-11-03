@@ -54,13 +54,6 @@
       "minzoom": 12,
       "maxzoom": 20
     },
-    "elevation_difference": {
-      "type": "raster",
-      "tiles": ["pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/elevation-2022-minus-2013.pmtiles/{z}/{x}/{y}"],
-      "attribution": "<a href=\"https://sonomavegmap.org/\" target=\"_blank\">© SonomaVegMap</a> (CC BY-SA)",
-      "tileSize": 512,
-      "maxzoom": 16
-    },
     "parcels": {
       "type": "vector",
       "url": "pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/sonoma-county-parcels.pmtiles"
@@ -2310,22 +2303,25 @@
       "layout": {"visibility": "none"}
     },
     {
-      "id": "elevation_difference",
-      "type": "raster",
-      "source": "elevation_difference",
-      "layout": {"visibility": "none"}
-    },
-    {
       "id": "contrast",
       "type": "background",
       "paint": {"background-color": "white", "background-opacity": 0}
+    },
+    {
+      "id": "parcels_outline",
+      "source": "parcels",
+      "source-layer": "parcels",
+      "type": "line",
+      "paint": {"line-color": "white", "line-width": 4, "line-opacity": 0.5},
+      "minzoom": 14,
+      "layout": {"visibility": "none"}
     },
     {
       "id": "parcels",
       "source": "parcels",
       "source-layer": "parcels",
       "type": "line",
-      "paint": {"line-color": "#ffae00", "line-width": 2, "line-opacity": 0.5},
+      "paint": {"line-color": "grey", "line-width": 2},
       "minzoom": 14,
       "layout": {"visibility": "none"}
     },
@@ -2383,7 +2379,7 @@
       "source-layer": "contours",
       "type": "fill",
       "filter": ["<", ["get", "level"], 0],
-      "paint": {"fill-color": "#6f00ff", "fill-opacity": {"stops": [[14, 0], [16, 0.05]]}},
+      "paint": {"fill-color": "#9d3bff", "fill-opacity": {"stops": [[14, 0], [16, 0.05]]}},
       "minzoom": 14,
       "layout": {"visibility": "none"}
     },
@@ -2393,7 +2389,7 @@
       "source-layer": "contours",
       "type": "fill",
       "filter": [">", ["get", "level"], 0],
-      "paint": {"fill-color": "#00a000", "fill-opacity": {"stops": [[14, 0], [16, 0.05]]}},
+      "paint": {"fill-color": "#ff9100", "fill-opacity": {"stops": [[14, 0], [16, 0.05]]}},
       "minzoom": 14,
       "layout": {"visibility": "none"}
     },
@@ -2403,7 +2399,7 @@
       "source-layer": "contours",
       "type": "line",
       "filter": ["<", ["get", "level"], 0],
-      "paint": {"line-color": "#6f00ff", "line-width": {"stops": [[14, 0], [20, 2]]}},
+      "paint": {"line-color": "#9d3bff", "line-width": {"stops": [[14, 0], [20, 2]]}},
       "minzoom": 14,
       "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
     },
@@ -2413,7 +2409,7 @@
       "source-layer": "contours",
       "type": "line",
       "filter": [">", ["get", "level"], 0],
-      "paint": {"line-color": "#00a000", "line-width": {"stops": [[14, 0], [20, 2]]}},
+      "paint": {"line-color": "#ff9100", "line-width": {"stops": [[14, 0], [20, 2]]}},
       "minzoom": 14,
       "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
     },

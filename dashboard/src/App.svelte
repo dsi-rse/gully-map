@@ -170,22 +170,14 @@
       if (layer == "basic") {
         map.setLayoutProperty("aerial_2013", "visibility", "none");
         map.setLayoutProperty("aerial_2021", "visibility", "none");
-        map.setLayoutProperty("elevation_difference", "visibility", "none");
       }
       else if (layer == "aerial_2013") {
         map.setLayoutProperty("aerial_2013", "visibility", "visible");
         map.setLayoutProperty("aerial_2021", "visibility", "none");
-        map.setLayoutProperty("elevation_difference", "visibility", "none");
       }
       else if (layer == "aerial_2022") {
         map.setLayoutProperty("aerial_2013", "visibility", "none");
         map.setLayoutProperty("aerial_2021", "visibility", "visible");
-        map.setLayoutProperty("elevation_difference", "visibility", "none");
-      }
-      else if (layer == "elevation_difference") {
-        map.setLayoutProperty("aerial_2013", "visibility", "none");
-        map.setLayoutProperty("aerial_2021", "visibility", "none");
-        map.setLayoutProperty("elevation_difference", "visibility", "visible");
       }
     }
   }
@@ -662,7 +654,6 @@
   const highres_layers = [
     "baselayer_aerial_2013",
     "baselayer_aerial_2021",
-    "baselayer_elevation_difference",
   ];
 
 </script>
@@ -741,20 +732,6 @@ ${f.type}; ${f.description}`;
           (<a href="https://gis.sonomacounty.ca.gov/datasets/dc026cbfb9884d51a65dae1846bf76a5/explore?location=38.472153%2C-122.943650%2C10.18">Sonoma GIS</a>,
           <a href="https://www.arcgis.com/home/item.html?id=0c361a688a5a453487021132c878e870">through Esri</a>)
         </div>
-        <div>
-          <label for="baselayer_elevation_difference" class="disabled"><input type="radio" name="baselayer" id="baselayer_elevation_difference" disabled on:change={
-              (e) => toggleBaselayer("elevation_difference")
-          }> 2013-2022 elevation difference</label>
-          (<span style="vertical-align: 0.1em; display: inline-block; width: 1em; height: 1em;">
-            <svg width="1em" height="1em" viewBox="0 0 24 24" style="display: inline; vertical-align: middle;" xmlns="http://www.w3.org/2000/svg">
-              <rect x="2" y="2" width="20" height="20" fill="#b780ff" stroke="#000000" stroke-width="1"/>
-            </svg>
-          </span> erosion, <span style="vertical-align: 0.1em; display: inline-block; width: 1em; height: 1em;">
-            <svg width="1em" height="1em" viewBox="0 0 24 24" style="display: inline; vertical-align: middle;" xmlns="http://www.w3.org/2000/svg">
-              <rect x="2" y="2" width="20" height="20" fill="#7ece7e" stroke="#000000" stroke-width="1"/>
-            </svg>
-          </span> deposition)
-        </div>
         <div id="zoom_in_message" class="indent">
           (Zoom in to allow disabled baselayers.)
         </div>
@@ -763,7 +740,10 @@ ${f.type}; ${f.description}`;
         <h3>Land ownership</h3>
         <div>
           <label for="layer_parcel"><input type="checkbox" id="layer_parcel" on:change={
-                (e) => map.setLayoutProperty("parcels", "visibility", e.target.checked ? "visible" : "none")
+                (e) => {
+                    map.setLayoutProperty("parcels_outline", "visibility", e.target.checked ? "visible" : "none");
+                    map.setLayoutProperty("parcels", "visibility", e.target.checked ? "visible" : "none");
+                }
             }> Land ownership boundaries</label> (<a href="https://gis.sonomacounty.ca.gov/maps/4b231e8ffbac47abb9a78296e550ffa1">source</a>)
         </div>
       </div>
@@ -822,13 +802,13 @@ ${f.type}; ${f.description}`;
         <div class="indent">
           (1/3 meter spacing, <span style="vertical-align: 0.1em; display: inline-block; width: 1em; height: 1em;">
             <svg width="1em" height="1em" viewBox="0 0 24 24" style="display: inline; vertical-align: middle;" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="12" cy="12" r="10" stroke="#6f00ff" stroke-width="2" fill="none"/>
-              <circle cx="12" cy="12" r="5" stroke="#6f00ff" stroke-width="2" fill="none"/>
+              <circle cx="12" cy="12" r="10" stroke="#9d3bff" stroke-width="2" fill="none"/>
+              <circle cx="12" cy="12" r="5" stroke="#9d3bff" stroke-width="2" fill="none"/>
             </svg>
           </span> erosion, <span style="vertical-align: 0.1em; display: inline-block; width: 1em; height: 1em;">
             <svg width="1em" height="1em" viewBox="0 0 24 24" style="display: inline; vertical-align: middle;" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="12" cy="12" r="10" stroke="#00a000" stroke-width="2" fill="none"/>
-              <circle cx="12" cy="12" r="5" stroke="#00a000" stroke-width="2" fill="none"/>
+              <circle cx="12" cy="12" r="10" stroke="#ff9100" stroke-width="2" fill="none"/>
+              <circle cx="12" cy="12" r="5" stroke="#ff9100" stroke-width="2" fill="none"/>
             </svg>
           </span> deposition)
         </div>
