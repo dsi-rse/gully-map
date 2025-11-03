@@ -1,3 +1,16 @@
+"""
+Module for efficient tiled processing and texture shading of large digital elevation models (DEMs).
+
+This module provides utilities for:
+- Efficiently finding the smallest product of integer powers of given bases greater than or equal to an input value (`nextprod`, `nextpow`).
+- Chunked/tiled processing of large 2D arrays through windowing (`window_loop`), with flexible chunk size, overlap, direction, and axis.
+- Parallelized, frequency-domain texture shading of DEMs using fast Fourier transforms (`texture_shading`), for use in rendering or terrain visualization.
+
+Dependencies:
+- numpy
+- rasterio
+"""
+
 import math
 import threading
 import queue
@@ -7,9 +20,12 @@ import rasterio
 
 NUM_THREADS = 10
 
+
 def nextprod(a: list[int], x: int) -> int:
     """
     Next integer greater than or equal to `x` that can be written as ``\\prod k_i^{a_i}`` for integers ``a_1``, ``a_2``, etc.
+
+    Copied from https://github.com/zoran-cuckovic/QGIS-terrain-shading/blob/f8033c00b0173cbd555bf2d3f6a2b476292a6ec3/modules/helpers.py#L224-L260
 
     # Examples
     ```jldoctest
@@ -51,6 +67,8 @@ def nextpow(a: float, x: float) -> float:
     """
     The smallest `a^n` not less than `x`, where `n` is a non-negative integer.
 
+    Copied from https://github.com/zoran-cuckovic/QGIS-terrain-shading/blob/f8033c00b0173cbd555bf2d3f6a2b476292a6ec3/modules/helpers.py#L199-L220
+
     `a` must be greater than 1, and `x` must be greater than 0.
     # Examples
     ```jldoctest
@@ -72,10 +90,49 @@ def nextpow(a: float, x: float) -> float:
     return p if p >= x else a**n
 
 
-def window_loop(shape, chunk, axis=0, reverse=False, overlap=0, offset=0):
+def window_loop(
+    shape: (int, int),
+    chunk: (int, int),
+    axis: int = 0,
+    reverse: bool = False,
+    overlap: int = 0,
+    offset: int = 0,
+):
     """
-    Construct a frame to extract chunks of data from gdal
-    (and to insert them properly to a numpy matrix)
+    Generator for tiling large 2D arrays into windows/chunks with optional overlap and direction.
+
+    Copied from https://github.com/zoran-cuckovic/QGIS-terrain-shading/blob/f8033c00b0173cbd555bf2d3f6a2b476292a6ec3/modules/helpers.py#L43-L106
+
+    This function yields index descriptors for extracting and placing tiles or chunks when processing large arrays in pieces,
+    such as reading/writing with GDAL/rasterio or processing in memory with numpy.
+
+    Args:
+        shape (tuple of int): Shape of the full array as (width, height).
+        chunk (tuple of int): Desired chunk size as (width, height); only one dimension used per loop, based on `axis`.
+        axis (int, optional): Axis along which to chunk; 0 for rows (height), 1 for columns (width). Default is 0.
+        reverse (bool, optional): If True, process in reverse order along the chosen axis. Default is False.
+        overlap (int, optional): Number of overlapping pixels between neighboring chunks. Default is 0.
+        offset (int, optional): Pixel offset to apply to each chunk origin (can be negative or positive). Default is 0.
+
+    Yields:
+        tuple: (in_view, gdal_take, out_view, gdal_put)
+            - in_view: numpy index/slice for extracting the chunk from a larger array.
+            - gdal_take: tuple for reading the chunk from disk (x_off, y_off, x_size, y_size).
+            - out_view: numpy index/slice for inserting the processed chunk into the output array.
+            - gdal_put: tuple for writing the chunk to disk (x_off, y_off, x_size, y_size).
+
+    Example:
+        >>> for in_view, gdal_take, out_view, gdal_put in window_loop((1024, 1024), (256, 256), axis=0, overlap=16):
+        ...     # Use gdal_take to read a window from a raster file
+        ...     chunk = raster.read(window=gdal_take)
+        ...     # process 'chunk' here...
+        ...     # Insert the result into a numpy array using out_view
+        ...     out_array[out_view] = processed_chunk
+
+    Notes:
+        - For most raster formats, 'shape' should be (width, height).
+        - Only one axis is chunked per call; chunk size along the other axis is ignored.
+        - Overlap is applied on both sides of each chunk where possible, unless at the edges.
     """
     xsize, ysize = shape if axis == 0 else shape[::-1]
 
@@ -139,6 +196,29 @@ def window_loop(shape, chunk, axis=0, reverse=False, overlap=0, offset=0):
 
 
 def texture_shading(dem_array: np.ndarray, alpha: float = 0.5):
+    """
+    Applies frequency-domain texture shading to a digital elevation model (DEM) array.
+
+    This function enhances the surface texture of a DEM using a power-law filter
+    in the frequency domain, suitable for visualization or analysis. The computation is
+    performed efficiently in parallel using chunked processing with FFTs.
+
+    Args:
+        dem_array (np.ndarray): 2D array containing elevation data.
+        alpha (float, optional): Exponent for the frequency filter.
+            Higher values increase the texture contrast. Default is 0.5.
+
+    Returns:
+        np.ndarray: 2D array of the same shape as `dem_array`, containing the
+            texture-shaded DEM.
+
+    Example:
+        >>> import rasterio
+        >>> from texture_module import texture_shading
+        >>> with rasterio.open("input_dem.tif") as src:
+        ...     dem = src.read(1)
+        >>> shaded = texture_shading(dem, alpha=0.6)
+    """
     ysize, xsize = dem_array.shape
     chunk_y, chunk_x = 244, 225
     chunk_slice_x = ysize, chunk_x
@@ -188,13 +268,14 @@ def texture_shading(dem_array: np.ndarray, alpha: float = 0.5):
             out = r[: mx_z.shape[0], : mx_z.shape[1]]
 
             jstart, istart, jsize, isize = gdal_put
-            out_array[istart : istart + isize, jstart : jstart + jsize] += out[mx_view_out]
+            out_array[istart : istart + isize, jstart : jstart + jsize] += out[
+                mx_view_out
+            ]
 
+    # fork-join parallelism, all writing to the same out_array
     threads = [threading.Thread(target=worker) for _ in range(NUM_THREADS)]
-
     for thread in threads:
         thread.start()
-
     for thread in threads:
         thread.join()
 
