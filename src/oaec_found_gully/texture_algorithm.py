@@ -230,54 +230,53 @@ def texture_shading(dem_array: np.ndarray, alpha: float = 0.5):
     fx = np.fft.rfftfreq(Nx)[np.newaxis, :]
     Hy, Hx = (fy**2) ** alpha, (fx**2) ** alpha
 
-    tasks = queue.Queue()
+    out_array = np.zeros_like(dem_array)
+
     for axis in [0, 1]:
         if axis == 0:
             chunk = chunk_x
+            N, H = Ny, Hy
         elif axis == 1:
             chunk = chunk_y
+            N, H = Nx, Hx
+
+        tasks = queue.Queue()
 
         for window in window_loop(shape=(xsize, ysize), chunk=chunk, axis=axis):
-            tasks.put((axis, window))
+            tasks.put(window)
 
-    for _ in range(NUM_THREADS):
-        tasks.put(None)
+        for _ in range(NUM_THREADS):
+            tasks.put(None)
 
-    out_array = np.zeros_like(dem_array)
+        def worker():
+            while True:
+                task = tasks.get()
+                if task is None:
+                    break
 
-    def worker():
-        while True:
-            task = tasks.get()
-            if task is None:
-                break
+                mx_view_in, gdal_take, mx_view_out, gdal_put = task
 
-            axis, (mx_view_in, gdal_take, mx_view_out, gdal_put) = task
+                jstart, istart, jsize, isize = gdal_take
+                mx_z = dem_array[istart : istart + isize, jstart : jstart + jsize]
 
-            if axis == 0:
-                N, H = Ny, Hy
-            elif axis == 1:
-                N, H = Nx, Hx
+                r = np.fft.rfft(mx_z, N, axis=axis) * H
+                r = np.fft.irfft(r, axis=axis)
 
-            jstart, istart, jsize, isize = gdal_take
-            mx_z = dem_array[istart : istart + isize, jstart : jstart + jsize]
+                # return the same size as input
+                out = r[: mx_z.shape[0], : mx_z.shape[1]]
 
-            r = np.fft.rfft(mx_z, N, axis=axis) * H
-            r = np.fft.irfft(r, axis=axis)
+                jstart, istart, jsize, isize = gdal_put
+                out_array[istart : istart + isize, jstart : jstart + jsize] += out[
+                    mx_view_out
+                ]
 
-            # return the same size as input
-            out = r[: mx_z.shape[0], : mx_z.shape[1]]
-
-            jstart, istart, jsize, isize = gdal_put
-            out_array[istart : istart + isize, jstart : jstart + jsize] += out[
-                mx_view_out
-            ]
-
-    # fork-join parallelism, all writing to the same out_array
-    threads = [threading.Thread(target=worker) for _ in range(NUM_THREADS)]
-    for thread in threads:
-        thread.start()
-    for thread in threads:
-        thread.join()
+        # fork-join parallelism, all writing to the same out_array
+        threads = [threading.Thread(target=worker) for _ in range(NUM_THREADS)]
+        for thread in threads:
+            thread.start()
+        # synchronize after each axis (axes overlap, but windows within an axis don't)
+        for thread in threads:
+            thread.join()
 
     return out_array
 
