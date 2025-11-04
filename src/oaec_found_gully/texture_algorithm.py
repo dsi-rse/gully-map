@@ -5,6 +5,7 @@ This module provides utilities for:
 - Efficiently finding the smallest product of integer powers of given bases greater than or equal to an input value (`nextprod`, `nextpow`).
 - Chunked/tiled processing of large 2D arrays through windowing (`window_loop`), with flexible chunk size, overlap, direction, and axis.
 - Parallelized, frequency-domain texture shading of DEMs using fast Fourier transforms (`texture_shading`), for use in rendering or terrain visualization.
+- Colorizing the texture shading and overlaying it on a grayscale (0-255 uint8) hillshade image.
 
 Dependencies:
 - numpy
@@ -14,6 +15,7 @@ Dependencies:
 import math
 import threading
 import queue
+from typing import Generator, Any
 
 import numpy as np
 import numba as nb
@@ -100,7 +102,16 @@ def window_loop(
     reverse: bool = False,
     overlap: int = 0,
     offset: int = 0,
-):
+) -> Generator[
+    tuple[
+        Any,  # in_view: numpy index/slice
+        tuple[int, int, int, int],  # gdal_take: (x_off, y_off, x_size, y_size)
+        Any,  # out_view: numpy index/slice
+        tuple[int, int, int, int],  # gdal_put: (x_off, y_off, x_size, y_size)
+    ],
+    None,
+    None,
+]:
     """
     Generator for tiling large 2D arrays into windows/chunks with optional overlap and direction.
 
@@ -285,7 +296,29 @@ def texture_shading(dem_array: np.ndarray, alpha: float = 0.5) -> np.ndarray:
 
 
 @nb.jit(parallel=True)
-def colorize_hillshade(texture: np.ndarray, hillshade: np.ndarray, clamp: float = 0.1) -> np.ndarray:
+def colorize_hillshade(
+    texture: np.ndarray, hillshade: np.ndarray, clamp: float = 0.1
+) -> np.ndarray:
+    """
+    Overlay a colorized texture onto a grayscale hillshade image using an overlay blend.
+
+    The function assigns colors to `texture` values—blue for negative, green for zero, yellow for positive—
+    interpolating smoothly between them. The result is then composited over a grayscale hillshade using
+    the overlay blend mode for improved terrain visualization. Alpha is set to 255 everywhere.
+
+    Args:
+        texture (np.ndarray): 2D array of texture (e.g., from `texture_shading`), typically scaled to [-1, 1].
+        hillshade (np.ndarray): 2D array of uint8 hillshade values in [0, 255].
+        clamp (float, optional): Maximum absolute value for clamping the texture, controlling color intensity. Default is 0.1.
+
+    Returns:
+        np.ndarray: 4 x H x W uint8 RGBA image array, colorized by texture and overlaid on the hillshade.
+
+    Notes:
+        - This function is parallelized via Numba for fast large-scale raster processing.
+        - Input arrays must have the same shape.
+        - Output alpha is set to 255; nodata can be masked after.
+    """
     overlaid = np.empty((4, texture.shape[0], texture.shape[1]), dtype=np.uint8)
     overlaid[3] = 255
 
@@ -297,7 +330,9 @@ def colorize_hillshade(texture: np.ndarray, hillshade: np.ndarray, clamp: float 
         for j in nb.prange(texture.shape[1]):
             # scaled is between -1 and 1
             scaled = texture[i, j]
-            scaled = -clamp if scaled < -clamp else (clamp if scaled > clamp else scaled)
+            scaled = (
+                -clamp if scaled < -clamp else (clamp if scaled > clamp else scaled)
+            )
             scaled /= clamp
 
             if scaled < 0:
