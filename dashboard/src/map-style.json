@@ -54,6 +54,14 @@
       "minzoom": 12,
       "maxzoom": 20
     },
+    "hillshade_color_enhanced": {
+      "type": "raster",
+      "tiles": ["pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/hillshade-2022-color-enhanced.pmtiles/{z}/{x}/{y}"],
+      "attribution": "<a href=\"https://landscapearchaeology.org/qgis-terrain-shading/\" target=\"_blank\">© Zoran Čučković</a> (GNU v2)",
+      "tileSize": 512,
+      "minzoom": 12,
+      "maxzoom": 18
+    },
     "parcels": {
       "type": "vector",
       "url": "pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/sonoma-county-parcels.pmtiles"
@@ -2300,6 +2308,12 @@
       "id": "aerial_2021",
       "type": "raster",
       "source": "aerial_2021",
+      "layout": {"visibility": "none"}
+    },
+    {
+      "id": "hillshade_color_enhanced",
+      "type": "raster",
+      "source": "hillshade_color_enhanced",
       "layout": {"visibility": "none"}
     },
     {

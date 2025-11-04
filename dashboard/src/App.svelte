@@ -170,14 +170,22 @@
       if (layer == "basic") {
         map.setLayoutProperty("aerial_2013", "visibility", "none");
         map.setLayoutProperty("aerial_2021", "visibility", "none");
+        map.setLayoutProperty("hillshade_color_enhanced", "visibility", "none");
       }
       else if (layer == "aerial_2013") {
         map.setLayoutProperty("aerial_2013", "visibility", "visible");
         map.setLayoutProperty("aerial_2021", "visibility", "none");
+        map.setLayoutProperty("hillshade_color_enhanced", "visibility", "none");
       }
       else if (layer == "aerial_2022") {
         map.setLayoutProperty("aerial_2013", "visibility", "none");
         map.setLayoutProperty("aerial_2021", "visibility", "visible");
+        map.setLayoutProperty("hillshade_color_enhanced", "visibility", "none");
+      }
+      else if (layer == "hillshade_color_enhanced") {
+        map.setLayoutProperty("aerial_2013", "visibility", "none");
+        map.setLayoutProperty("aerial_2021", "visibility", "none");
+        map.setLayoutProperty("hillshade_color_enhanced", "visibility", "visible");
       }
     }
   }
@@ -654,6 +662,7 @@
   const highres_layers = [
     "baselayer_aerial_2013",
     "baselayer_aerial_2021",
+    "baselayer_hillshade_color_enhanced",
   ];
 
 </script>
@@ -716,23 +725,29 @@ ${f.type}; ${f.description}`;
         <div>
           <label><input type="radio" name="baselayer" id="baselayer_basic" checked on:change={
               (e) => toggleBaselayer("basic")
-          }> Basic topographic map</label> (<a href="https://github.com/nst-guide/osm-liberty-topo">from here</a>)
+          }> Basic topographic map</label> (<a href="https://github.com/nst-guide/osm-liberty-topo" target="_blank">from here</a>)
         </div>
         <div>
           <label for="baselayer_aerial_2013" class="disabled"><input type="radio" name="baselayer" id="baselayer_aerial_2013" disabled on:change={
               (e) => toggleBaselayer("aerial_2013")
           }> 2013 aerial photography</label>
-          (<a href="https://www.arcgis.com/apps/mapviewer/index.html?url=https://socogis.sonomacounty.ca.gov/image/rest/services/Rasters/Ortho_SoCo_SonomaVeg_2013_WM/ImageServer&source=sd">Sonoma GIS</a>,
-          <a href="https://www.arcgis.com/home/item.html?id=a5fc12e9c4324663bafde942a7d1e1d3">through Esri</a>)
+          (<a href="https://www.arcgis.com/apps/mapviewer/index.html?url=https://socogis.sonomacounty.ca.gov/image/rest/services/Rasters/Ortho_SoCo_SonomaVeg_2013_WM/ImageServer&source=sd" target="_blank">Sonoma GIS</a>,
+          <a href="https://www.arcgis.com/home/item.html?id=a5fc12e9c4324663bafde942a7d1e1d3" target="_blank">through Esri</a>)
         </div>
         <div>
           <label for="baselayer_aerial_2021" class="disabled"><input type="radio" name="baselayer" id="baselayer_aerial_2021" disabled on:change={
               (e) => toggleBaselayer("aerial_2022")
           }> 2021 aerial photography</label>
-          (<a href="https://gis.sonomacounty.ca.gov/datasets/dc026cbfb9884d51a65dae1846bf76a5/explore?location=38.472153%2C-122.943650%2C10.18">Sonoma GIS</a>,
-          <a href="https://www.arcgis.com/home/item.html?id=0c361a688a5a453487021132c878e870">through Esri</a>)
+          (<a href="https://gis.sonomacounty.ca.gov/datasets/dc026cbfb9884d51a65dae1846bf76a5/explore?location=38.472153%2C-122.943650%2C10.18" target="_blank">Sonoma GIS</a>,
+          <a href="https://www.arcgis.com/home/item.html?id=0c361a688a5a453487021132c878e870" target="_blank">through Esri</a>)
         </div>
-        <div id="zoom_in_message" class="indent">
+        <div>
+          <label for="baselayer_hillshade_color_enhanced" class="disabled"><input type="radio" name="baselayer" id="baselayer_hillshade_color_enhanced" disabled on:change={
+              (e) => toggleBaselayer("hillshade_color_enhanced")
+          }> 2022 color-enhanced hillshade</label>
+          (<a href="https://tukmangeospatial.egnyte.com/dl/ADWSBBL7ac" target="_blank">LIDAR derivative hillshade</a> + <a href="https://landscapearchaeology.org/2021/texture-shading/" target="_blank">fractional-Laplacian sharpened</a> elevation overlay)
+        </div>
+        <div id="zoom_in_message" class="indent" style="margin-top: 0.25em">
           (Zoom in to allow disabled baselayers.)
         </div>
       </div>
@@ -744,7 +759,7 @@ ${f.type}; ${f.description}`;
                     map.setLayoutProperty("parcels_outline", "visibility", e.target.checked ? "visible" : "none");
                     map.setLayoutProperty("parcels", "visibility", e.target.checked ? "visible" : "none");
                 }
-            }> Land ownership boundaries</label> (<a href="https://gis.sonomacounty.ca.gov/maps/4b231e8ffbac47abb9a78296e550ffa1">source</a>)
+            }> Land ownership boundaries</label> (<a href="https://gis.sonomacounty.ca.gov/maps/4b231e8ffbac47abb9a78296e550ffa1" target="_blank">source</a>)
         </div>
       </div>
       <div class="group">
@@ -769,7 +784,7 @@ ${f.type}; ${f.description}`;
           }> (material in 1‒8 m) / (material in 0‒8 m)</label>
         </div>
         <div class="indent">
-           (See page 9 of <a href="https://tukmangeospatial.egnyte.com/dl/ADWSBBL7ac">LIDAR derivatives</a>)
+           (See page 9 of <a href="https://tukmangeospatial.egnyte.com/dl/ADWSBBL7ac" target="_blank">LIDAR derivatives</a>)
         </div>
       </div>
       <div class="group">
