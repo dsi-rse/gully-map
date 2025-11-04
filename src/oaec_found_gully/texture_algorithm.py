@@ -20,6 +20,7 @@ import numba as nb
 import rasterio
 import numba
 
+
 NUM_THREADS = 10
 
 
@@ -326,18 +327,23 @@ def colorize_hillshade(texture: np.ndarray, hillshade: np.ndarray, clamp: float 
 
 
 if __name__ == "__main__":
-    with rasterio.open("Dutch Bill Creek_HYDROFLATTENED_BARE_EARTH.tif") as file:
+    with rasterio.open("Lower Salmon Creek_HYDROFLATTENED_BARE_EARTH.tif") as file:
         dem_array = file.read(1)
         dem_profile = file.profile
 
-    with rasterio.open("Dutch Bill Creek_HILLSHADE.tif") as file:
+    with rasterio.open("Lower Salmon Creek_HILLSHADE.tif") as file:
         hillshade = file.read(1)
+
+    missing_data = abs(dem_array) > 1e30
+    dem_array[missing_data] = 0
 
     print("making texture")
     texture = texture_shading(dem_array, 0.5)
 
     print("making overlaid")
     overlaid = colorize_hillshade(texture, hillshade)
+
+    overlaid[3, missing_data] = 0
 
     print("writing")
     dem_profile["count"] = 4
