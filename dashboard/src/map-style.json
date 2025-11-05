@@ -64,17 +64,17 @@
     },
     "elevation_contours": {
       "type": "vector",
-      "url": "pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/elevation-2022-contours-z22.pmtiles",
+      "url": "pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/elevation-2022-contours.pmtiles",
       "attribution": "<a href=\"https://sonomavegmap.org/\" target=\"_blank\">© SonomaVegMap</a> (CC BY-SA)",
       "minzoom": 9,
       "maxzoom": 24
     },
     "hillshade_color_enhanced": {
       "type": "raster",
-      "tiles": ["pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/hillshade-2022-color-enhanced-z12.pmtiles/{z}/{x}/{y}"],
+      "tiles": ["pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/hillshade-2022-color-enhanced.pmtiles/{z}/{x}/{y}"],
       "attribution": "<a href=\"https://landscapearchaeology.org/qgis-terrain-shading/\" target=\"_blank\">© Zoran Čučković</a> (GNU v2)",
       "tileSize": 512,
-      "minzoom": 12,
+      "minzoom": 9,
       "maxzoom": 18
     },
     "parcels": {
@@ -2337,8 +2337,8 @@
       "source-layer": "contours",
       "type": "line",
       "filter": ["==", ["%", ["get", "level"], 50], 0],
-      "paint": {"line-color": "white", "line-width": {"stops": [[12, 0], [20, 6]]}, "line-opacity": 0.75},
-      "minzoom": 14,
+      "paint": {"line-color": "white", "line-width": {"stops": [[13, 0], [20, 6]]}, "line-opacity": 0.75},
+      "minzoom": 13,
       "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
     },
     {
@@ -2347,8 +2347,8 @@
       "source-layer": "contours",
       "type": "line",
       "filter": ["==", ["%", ["get", "level"], 50], 0],
-      "paint": {"line-color": "#008000", "line-width": {"stops": [[12, 0], [20, 4]]}, "line-opacity": 0.75},
-      "minzoom": 14,
+      "paint": {"line-color": "#008000", "line-width": {"stops": [[13, 0], [20, 4]]}, "line-opacity": 0.75},
+      "minzoom": 13,
       "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
     },
     {
@@ -2357,8 +2357,8 @@
       "source-layer": "contours",
       "type": "line",
       "filter": ["!=", ["%", ["get", "level"], 50], 0],
-      "paint": {"line-color": "#00d000", "line-width": {"stops": [[14, 0], [20, 2]]}, "line-dasharray": [2, 2], "line-opacity": 0.75},
-      "minzoom": 14,
+      "paint": {"line-color": "#00d000", "line-width": {"stops": [[13, 0], [20, 3]]}, "line-dasharray": [2, 2], "line-opacity": 0.75},
+      "minzoom": 13,
       "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
     },
     {

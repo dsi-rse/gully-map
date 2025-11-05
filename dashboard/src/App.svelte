@@ -684,7 +684,7 @@
     "aerial_2013": 14,
     "aerial_2021": 12,
     "hillshade_greyscale": 9,
-    "hillshade_color_enhanced": 12,
+    "hillshade_color_enhanced": 9,
   };
 
 </script>
@@ -700,7 +700,7 @@
       standardControls
       style={mapStyle}
       onload={handleOnLoad}
-      onzoomend={(e) => {
+      onzoom={(e) => {
           let all_visible = true;
           for (const [name, minzoom] of Object.entries(highres_layers)) {
               const checkbox = document.getElementById("baselayer_" + name);
@@ -720,6 +720,7 @@
               }
           }
           document.getElementById("zoom_in_message").style.display = all_visible ? "none" : "block";
+          document.getElementById("last_clicked_in_zoom_message").style.display = e.target.getZoom() >= 14 ? "none" : "inline";
       }}
       onclick={(e) => {
         const features = e.target.queryRenderedFeatures(e.point, { layers: ["parcels-filled"] });
@@ -778,13 +779,13 @@ ${f.type}; ${f.description}`;
           }> ... with 10 m contours</label>
         </div>
         <div>
-          <label for="baselayer_hillshade_color_enhanced" class="disabled"><input type="radio" name="baselayer" id="baselayer_hillshade_color_enhanced" disabled on:change={
+          <label for="baselayer_hillshade_color_enhanced"><input type="radio" name="baselayer" id="baselayer_hillshade_color_enhanced" on:change={
               (e) => toggleBaselayer("hillshade_color_enhanced")
           }> 2022 color-enhanced hillshade</label>
           (<a href="https://landscapearchaeology.org/2021/texture-shading/" target="_blank">fractional-Laplacian sharpened</a> overlay)
         </div>
         <div id="zoom_in_message" class="indent" style="margin-top: 0.5em">
-          (Zoom in to allow disabled baselayers.)
+          (Zoom in to enable missing baselayers.)
         </div>
       </div>
       <div class="group">
@@ -799,7 +800,7 @@ ${f.type}; ${f.description}`;
         </div>
       </div>
       <div class="group">
-        <div style="margin-left: 11px;">Last clicked in:</div>
+        <div style="margin-left: 11px;">Last clicked in<span id="last_clicked_in_zoom_message" style="display: inline;">&nbsp;(zoom in to enable)</span>:</div>
         <div id="last_clicked_in" style="min-height: 1em; margin: 5px; padding: 5px; border: 1px solid gray;"></div>
       </div>
       <div class="group">
