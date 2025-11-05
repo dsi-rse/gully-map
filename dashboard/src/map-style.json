@@ -54,6 +54,29 @@
       "minzoom": 12,
       "maxzoom": 20
     },
+    "hillshade_greyscale": {
+      "type": "raster",
+      "tiles": ["pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/hillshade-2022-greyscale.pmtiles/{z}/{x}/{y}"],
+      "attribution": "<a href=\"https://sonomavegmap.org/\" target=\"_blank\">© SonomaVegMap</a> (CC BY-SA)",
+      "tileSize": 512,
+      "minzoom": 9,
+      "maxzoom": 18
+    },
+    "elevation_contours": {
+      "type": "vector",
+      "url": "pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/elevation-2022-contours.pmtiles",
+      "attribution": "<a href=\"https://sonomavegmap.org/\" target=\"_blank\">© SonomaVegMap</a> (CC BY-SA)",
+      "minzoom": 9,
+      "maxzoom": 24
+    },
+    "hillshade_color_enhanced": {
+      "type": "raster",
+      "tiles": ["pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/hillshade-2022-color-enhanced.pmtiles/{z}/{x}/{y}"],
+      "attribution": "<a href=\"https://landscapearchaeology.org/qgis-terrain-shading/\" target=\"_blank\">© Zoran Čučković</a> (GNU v2)",
+      "tileSize": 512,
+      "minzoom": 9,
+      "maxzoom": 18
+    },
     "parcels": {
       "type": "vector",
       "url": "pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/sonoma-county-parcels.pmtiles"
@@ -2300,6 +2323,79 @@
       "id": "aerial_2021",
       "type": "raster",
       "source": "aerial_2021",
+      "layout": {"visibility": "none"}
+    },
+    {
+      "id": "hillshade_greyscale",
+      "type": "raster",
+      "source": "hillshade_greyscale",
+      "layout": {"visibility": "none"}
+    },
+    {
+      "id": "elevation_contours_outline",
+      "source": "elevation_contours",
+      "source-layer": "contours",
+      "type": "line",
+      "filter": ["==", ["%", ["get", "level"], 50], 0],
+      "paint": {"line-color": "white", "line-width": {"stops": [[13, 0], [20, 6]]}, "line-opacity": 0.75},
+      "minzoom": 13,
+      "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
+    },
+    {
+      "id": "elevation_contours_50",
+      "source": "elevation_contours",
+      "source-layer": "contours",
+      "type": "line",
+      "filter": ["==", ["%", ["get", "level"], 50], 0],
+      "paint": {"line-color": "#008000", "line-width": {"stops": [[13, 0], [20, 4]]}, "line-opacity": 0.75},
+      "minzoom": 13,
+      "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
+    },
+    {
+      "id": "elevation_contours_10",
+      "source": "elevation_contours",
+      "source-layer": "contours",
+      "type": "line",
+      "filter": ["!=", ["%", ["get", "level"], 50], 0],
+      "paint": {"line-color": "#00d000", "line-width": {"stops": [[13, 0], [20, 3]]}, "line-dasharray": [2, 2], "line-opacity": 0.75},
+      "minzoom": 13,
+      "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
+    },
+    {
+      "id": "elevation_contours_label",
+      "type": "symbol",
+      "metadata": {},
+      "source": "contour_10m",
+      "source-layer": "contour_10m",
+      "filter": [
+        "any",
+        ["all", ["<=", ["zoom"], 11], ["==", ["%", ["get", "ele_m"], 200], 0]],
+        ["all", ["==", ["zoom"], 12], ["==", ["%", ["get", "ele_m"], 100], 0]],
+        ["all", [">=", ["zoom"], 13], ["==", ["%", ["get", "ele_m"], 50], 0]]
+      ],
+      "layout": {
+        "text-size": {"base": 1, "stops": [[15, 11.5], [20, 14]]},
+        "text-allow-overlap": false,
+        "symbol-avoid-edges": true,
+        "text-ignore-placement": false,
+        "symbol-placement": "line",
+        "text-padding": 10,
+        "text-rotation-alignment": "map",
+        "text-field": "{ele_m}m",
+        "text-font": ["Open Sans Bold"],
+        "visibility": "none"
+      },
+      "paint": {
+        "text-color": "#008000",
+        "text-halo-color": "white",
+        "text-halo-width": 2,
+        "text-halo-blur": 1.5
+      }
+    },
+    {
+      "id": "hillshade_color_enhanced",
+      "type": "raster",
+      "source": "hillshade_color_enhanced",
       "layout": {"visibility": "none"}
     },
     {

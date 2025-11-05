@@ -168,16 +168,35 @@
   function toggleBaselayer(layer) {
     if (map != null) {
       if (layer == "basic") {
-        map.setLayoutProperty("aerial_2013", "visibility", "none");
-        map.setLayoutProperty("aerial_2021", "visibility", "none");
+        for (const name of Object.keys(highres_layers)) {
+          map.setLayoutProperty(name, "visibility", "none");
+        }
+        toggleBaselayerContours();
       }
-      else if (layer == "aerial_2013") {
-        map.setLayoutProperty("aerial_2013", "visibility", "visible");
-        map.setLayoutProperty("aerial_2021", "visibility", "none");
+      else {
+        for (const name of Object.keys(highres_layers)) {
+          map.setLayoutProperty(name, "visibility", layer == name ? "visible" : "none");
+        }
+        toggleBaselayerContours();
       }
-      else if (layer == "aerial_2022") {
-        map.setLayoutProperty("aerial_2013", "visibility", "none");
-        map.setLayoutProperty("aerial_2021", "visibility", "visible");
+    }
+  }
+
+  function toggleBaselayerContours() {
+    if (map != null) {
+      const hillshade_checked = document.getElementById("baselayer_hillshade_greyscale").checked;
+      const contours_checked = document.getElementById("baselayer_hillshade_greyscale_contours").checked;
+      if (hillshade_checked  &&  contours_checked) {
+        map.setLayoutProperty("elevation_contours_outline", "visibility", "visible");
+        map.setLayoutProperty("elevation_contours_50", "visibility", "visible");
+        map.setLayoutProperty("elevation_contours_10", "visibility", "visible");
+        map.setLayoutProperty("elevation_contours_label", "visibility", "visible");
+      }
+      else {
+        map.setLayoutProperty("elevation_contours_outline", "visibility", "none");
+        map.setLayoutProperty("elevation_contours_50", "visibility", "none");
+        map.setLayoutProperty("elevation_contours_10", "visibility", "none");
+        map.setLayoutProperty("elevation_contours_label", "visibility", "none");
       }
     }
   }
@@ -587,8 +606,17 @@
     }
     document.getElementById("line-is-too-long").style.display = "none";
 
-    const firstPoint = { longitude: coords[0][0], latitude: coords[0][1] };
-    const distances = coords.map(([lng, lat]) => getDistance(firstPoint, { longitude: lng, latitude: lat }, 0.01));
+    let cumulative = 0;
+    let distances = [];
+    let prevPoint = null;
+    for (const [lng, lat] of coords) {
+      const thisPoint = { longitude: lng, latitude: lat };
+      if (prevPoint !== null) {
+        cumulative += getDistance(prevPoint, thisPoint, 0.01);
+      }
+      distances.push(cumulative);
+      prevPoint = thisPoint;
+    }
 
     const tiles = coords.map(([lng, lat]) => getTile(...tileIndex(lng, lat)));
     const pixelIndexes = coords.map(([lng, lat]) => pixelIndex(lng, lat));
@@ -651,10 +679,13 @@
     elevation_difference_plot.setScale("y", { min: difference_low - 2, max: difference_high + 2 });
   }
 
-  const highres_layers = [
-    "baselayer_aerial_2013",
-    "baselayer_aerial_2021",
-  ];
+  // name: minzoom
+  const highres_layers = {
+    "aerial_2013": 14,
+    "aerial_2021": 12,
+    "hillshade_greyscale": 9,
+    "hillshade_color_enhanced": 9,
+  };
 
 </script>
 
@@ -669,25 +700,34 @@
       standardControls
       style={mapStyle}
       onload={handleOnLoad}
-      onzoomend={(e) => {
-          if (e.target.getZoom() < 14) {
-              toggleBaselayer("basic");
-              document.getElementById("baselayer_basic").checked = true;
-              for (let name of highres_layers) {
-                  document.getElementById(name).disabled = true;
-                  document.querySelector('label[for="' + name + '"]').classList.add("disabled");
+      onzoom={(e) => {
+          let all_visible = true;
+          for (const [name, minzoom] of Object.entries(highres_layers)) {
+              const checkbox = document.getElementById("baselayer_" + name);
+              const label = document.querySelector('label[for="baselayer_' + name + '"]');
+              if (e.target.getZoom() < minzoom) {
+                  if (checkbox.checked) {
+                      toggleBaselayer("basic");
+                      document.getElementById("baselayer_basic").checked = true;
+                  }
+                  checkbox.disabled = true;
+                  label.classList.add("disabled");
+                  all_visible = false;
               }
-              document.getElementById("zoom_in_message").style.display = "block";
-          }
-          else {
-              for (let name of highres_layers) {
-                  document.getElementById(name).disabled = false;
-                  document.querySelector('label[for="' + name + '"]').classList.remove("disabled");
+              else {
+                  checkbox.disabled = false;
+                  label.classList.remove("disabled");
               }
-              document.getElementById("zoom_in_message").style.display = "none";
           }
+          document.getElementById("zoom_in_message").style.display = all_visible ? "none" : "block";
+          document.getElementById("last_clicked_in_zoom_message").style.display = e.target.getZoom() >= 14 ? "none" : "inline";
       }}
       onclick={(e) => {
+        const [lng, lat] = [e.lngLat.lng, e.lngLat.lat];
+        document.getElementById("last_clicked_lng_lat").innerHTML = `${lng}, ${lat}`;
+        document.getElementById("last_clicked_google_maps").style.display = "inline";
+        document.getElementById("last_clicked_google_maps_href").href = `https://www.google.com/maps?q=${lat},${lng}`;
+
         const features = e.target.queryRenderedFeatures(e.point, { layers: ["parcels-filled"] });
         if (features.length == 0) {
             document.getElementById("last_clicked_in").innerHTML = "";
@@ -716,24 +756,41 @@ ${f.type}; ${f.description}`;
         <div>
           <label><input type="radio" name="baselayer" id="baselayer_basic" checked on:change={
               (e) => toggleBaselayer("basic")
-          }> Basic topographic map</label> (<a href="https://github.com/nst-guide/osm-liberty-topo">from here</a>)
+          }> Basic topographic map</label> (<a href="https://github.com/nst-guide/osm-liberty-topo" target="_blank">from here</a>)
         </div>
         <div>
           <label for="baselayer_aerial_2013" class="disabled"><input type="radio" name="baselayer" id="baselayer_aerial_2013" disabled on:change={
               (e) => toggleBaselayer("aerial_2013")
           }> 2013 aerial photography</label>
-          (<a href="https://www.arcgis.com/apps/mapviewer/index.html?url=https://socogis.sonomacounty.ca.gov/image/rest/services/Rasters/Ortho_SoCo_SonomaVeg_2013_WM/ImageServer&source=sd">Sonoma GIS</a>,
-          <a href="https://www.arcgis.com/home/item.html?id=a5fc12e9c4324663bafde942a7d1e1d3">through Esri</a>)
+          (<a href="https://www.arcgis.com/apps/mapviewer/index.html?url=https://socogis.sonomacounty.ca.gov/image/rest/services/Rasters/Ortho_SoCo_SonomaVeg_2013_WM/ImageServer&source=sd" target="_blank">Sonoma GIS</a>,
+          <a href="https://www.arcgis.com/home/item.html?id=a5fc12e9c4324663bafde942a7d1e1d3" target="_blank">through Esri</a>)
         </div>
         <div>
           <label for="baselayer_aerial_2021" class="disabled"><input type="radio" name="baselayer" id="baselayer_aerial_2021" disabled on:change={
-              (e) => toggleBaselayer("aerial_2022")
+              (e) => toggleBaselayer("aerial_2021")
           }> 2021 aerial photography</label>
-          (<a href="https://gis.sonomacounty.ca.gov/datasets/dc026cbfb9884d51a65dae1846bf76a5/explore?location=38.472153%2C-122.943650%2C10.18">Sonoma GIS</a>,
-          <a href="https://www.arcgis.com/home/item.html?id=0c361a688a5a453487021132c878e870">through Esri</a>)
+          (<a href="https://gis.sonomacounty.ca.gov/datasets/dc026cbfb9884d51a65dae1846bf76a5/explore?location=38.472153%2C-122.943650%2C10.18" target="_blank">Sonoma GIS</a>,
+          <a href="https://www.arcgis.com/home/item.html?id=0c361a688a5a453487021132c878e870" target="_blank">through Esri</a>)
         </div>
-        <div id="zoom_in_message" class="indent">
-          (Zoom in to allow disabled baselayers.)
+        <div>
+          <label for="baselayer_hillshade_greyscale"><input type="radio" name="baselayer" id="baselayer_hillshade_greyscale" on:change={
+              (e) => toggleBaselayer("hillshade_greyscale")
+          }> 2022 hillshade</label>
+          (page 9 of <a href="https://tukmangeospatial.egnyte.com/dl/ADWSBBL7ac" target="_blank">LIDAR derivatives</a>)
+        </div>
+        <div class="indent">
+          <label><input type="checkbox" id="baselayer_hillshade_greyscale_contours" checked on:change={
+              (e) => toggleBaselayerContours()
+          }> ... with 10 m contours</label>
+        </div>
+        <div>
+          <label for="baselayer_hillshade_color_enhanced"><input type="radio" name="baselayer" id="baselayer_hillshade_color_enhanced" on:change={
+              (e) => toggleBaselayer("hillshade_color_enhanced")
+          }> 2022 color-enhanced hillshade</label>
+          (<a href="https://landscapearchaeology.org/2021/texture-shading/" target="_blank">fractional-Laplacian sharpened</a> overlay)
+        </div>
+        <div id="zoom_in_message" class="indent" style="margin-top: 0.5em">
+          (Zoom in to enable missing baselayers.)
         </div>
       </div>
       <div class="group">
@@ -744,12 +801,16 @@ ${f.type}; ${f.description}`;
                     map.setLayoutProperty("parcels_outline", "visibility", e.target.checked ? "visible" : "none");
                     map.setLayoutProperty("parcels", "visibility", e.target.checked ? "visible" : "none");
                 }
-            }> Land ownership boundaries</label> (<a href="https://gis.sonomacounty.ca.gov/maps/4b231e8ffbac47abb9a78296e550ffa1">source</a>)
+            }> Land ownership boundaries</label> (<a href="https://gis.sonomacounty.ca.gov/maps/4b231e8ffbac47abb9a78296e550ffa1" target="_blank">source</a>)
         </div>
       </div>
       <div class="group">
-        <div style="margin-left: 11px;">Last clicked in:</div>
+        <div style="margin-left: 11px;">Last clicked in<span id="last_clicked_in_zoom_message" style="display: inline;">&nbsp;(zoom in to enable)</span>:</div>
         <div id="last_clicked_in" style="min-height: 1em; margin: 5px; padding: 5px; border: 1px solid gray;"></div>
+      </div>
+      <div class="group">
+        <div style="margin-left: 11px;">Last clicked longitude-latitude<span id="last_clicked_google_maps" style="display: none;">, and <a href="" target="_blank" id="last_clicked_google_maps_href">link to Google Maps</a></span>:</div>
+        <div id="last_clicked_lng_lat" style="height: 1em; margin: 5px; padding: 5px; border: 1px solid gray; overflow: hidden;"></div>
       </div>
       <div class="group">
         <h3>Fire hazard</h3>
@@ -769,7 +830,7 @@ ${f.type}; ${f.description}`;
           }> (material in 1‒8 m) / (material in 0‒8 m)</label>
         </div>
         <div class="indent">
-           (See page 9 of <a href="https://tukmangeospatial.egnyte.com/dl/ADWSBBL7ac">LIDAR derivatives</a>)
+           (See page 9 of <a href="https://tukmangeospatial.egnyte.com/dl/ADWSBBL7ac" target="_blank">LIDAR derivatives</a>)
         </div>
       </div>
       <div class="group">
@@ -812,7 +873,7 @@ ${f.type}; ${f.description}`;
             </svg>
           </span> deposition)
         </div>
-        <div>
+        <div class="indent">
           <label><input type="checkbox" id="elevation_difference_contours_fill" checked on:change={() => toggleElevationContours()}> ...and fill in the polygons</label>
         </div>
       </div>
