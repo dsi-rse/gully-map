@@ -723,6 +723,11 @@
           document.getElementById("last_clicked_in_zoom_message").style.display = e.target.getZoom() >= 14 ? "none" : "inline";
       }}
       onclick={(e) => {
+        const [lng, lat] = [e.lngLat.lng, e.lngLat.lat];
+        document.getElementById("last_clicked_lng_lat").innerHTML = `${lng}, ${lat}`;
+        document.getElementById("last_clicked_google_maps").style.display = "inline";
+        document.getElementById("last_clicked_google_maps_href").href = `https://www.google.com/maps?q=${lat},${lng}`;
+
         const features = e.target.queryRenderedFeatures(e.point, { layers: ["parcels-filled"] });
         if (features.length == 0) {
             document.getElementById("last_clicked_in").innerHTML = "";
@@ -802,6 +807,10 @@ ${f.type}; ${f.description}`;
       <div class="group">
         <div style="margin-left: 11px;">Last clicked in<span id="last_clicked_in_zoom_message" style="display: inline;">&nbsp;(zoom in to enable)</span>:</div>
         <div id="last_clicked_in" style="min-height: 1em; margin: 5px; padding: 5px; border: 1px solid gray;"></div>
+      </div>
+      <div class="group">
+        <div style="margin-left: 11px;">Last clicked longitude-latitude<span id="last_clicked_google_maps" style="display: none;">, and <a href="" target="_blank" id="last_clicked_google_maps_href">link to Google Maps</a></span>:</div>
+        <div id="last_clicked_lng_lat" style="height: 1em; margin: 5px; padding: 5px; border: 1px solid gray; overflow: hidden;"></div>
       </div>
       <div class="group">
         <h3>Fire hazard</h3>
