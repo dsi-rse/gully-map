@@ -170,21 +170,36 @@
       if (layer == "basic") {
         map.setLayoutProperty("aerial_2013", "visibility", "none");
         map.setLayoutProperty("aerial_2021", "visibility", "none");
+        map.setLayoutProperty("hillshade_greyscale", "visibility", "none");
+        map.setLayoutProperty("elevation_contours", "visibility", "none");
         map.setLayoutProperty("hillshade_color_enhanced", "visibility", "none");
       }
       else if (layer == "aerial_2013") {
         map.setLayoutProperty("aerial_2013", "visibility", "visible");
         map.setLayoutProperty("aerial_2021", "visibility", "none");
+        map.setLayoutProperty("hillshade_greyscale", "visibility", "none");
+        map.setLayoutProperty("elevation_contours", "visibility", "none");
         map.setLayoutProperty("hillshade_color_enhanced", "visibility", "none");
       }
       else if (layer == "aerial_2022") {
         map.setLayoutProperty("aerial_2013", "visibility", "none");
         map.setLayoutProperty("aerial_2021", "visibility", "visible");
+        map.setLayoutProperty("hillshade_greyscale", "visibility", "none");
+        map.setLayoutProperty("elevation_contours", "visibility", "none");
+        map.setLayoutProperty("hillshade_color_enhanced", "visibility", "none");
+      }
+      else if (layer == "hillshade_greyscale") {
+        map.setLayoutProperty("aerial_2013", "visibility", "none");
+        map.setLayoutProperty("aerial_2021", "visibility", "none");
+        map.setLayoutProperty("hillshade_greyscale", "visibility", "visible");
+        map.setLayoutProperty("elevation_contours", "visibility", "visible");
         map.setLayoutProperty("hillshade_color_enhanced", "visibility", "none");
       }
       else if (layer == "hillshade_color_enhanced") {
         map.setLayoutProperty("aerial_2013", "visibility", "none");
         map.setLayoutProperty("aerial_2021", "visibility", "none");
+        map.setLayoutProperty("hillshade_greyscale", "visibility", "none");
+        map.setLayoutProperty("elevation_contours", "visibility", "none");
         map.setLayoutProperty("hillshade_color_enhanced", "visibility", "visible");
       }
     }
@@ -659,11 +674,12 @@
     elevation_difference_plot.setScale("y", { min: difference_low - 2, max: difference_high + 2 });
   }
 
-  const highres_layers = [
-    "baselayer_aerial_2013",
-    "baselayer_aerial_2021",
-    "baselayer_hillshade_color_enhanced",
-  ];
+  const highres_layers = {
+    "baselayer_aerial_2013": 14,
+    "baselayer_aerial_2021": 12,
+    "baselayer_hillshade_greyscale": 9,
+    "baselayer_hillshade_color_enhanced": 9,
+  };
 
 </script>
 
@@ -679,22 +695,23 @@
       style={mapStyle}
       onload={handleOnLoad}
       onzoomend={(e) => {
-          if (e.target.getZoom() < 14) {
-              toggleBaselayer("basic");
-              document.getElementById("baselayer_basic").checked = true;
-              for (let name of highres_layers) {
+          let all_visible = true;
+          for (const [name, minzoom] of Object.entries(highres_layers)) {
+              if (e.target.getZoom() < minzoom) {
+                  if (document.getElementById(name).checked) {
+                      toggleBaselayer("basic");
+                      document.getElementById("baselayer_basic").checked = true;
+                  }
                   document.getElementById(name).disabled = true;
                   document.querySelector('label[for="' + name + '"]').classList.add("disabled");
+                  all_visible = false;
               }
-              document.getElementById("zoom_in_message").style.display = "block";
-          }
-          else {
-              for (let name of highres_layers) {
+              else {
                   document.getElementById(name).disabled = false;
                   document.querySelector('label[for="' + name + '"]').classList.remove("disabled");
               }
-              document.getElementById("zoom_in_message").style.display = "none";
           }
+          document.getElementById("zoom_in_message").style.display = all_visible ? "none" : "block";
       }}
       onclick={(e) => {
         const features = e.target.queryRenderedFeatures(e.point, { layers: ["parcels-filled"] });
@@ -742,10 +759,16 @@ ${f.type}; ${f.description}`;
           <a href="https://www.arcgis.com/home/item.html?id=0c361a688a5a453487021132c878e870" target="_blank">through Esri</a>)
         </div>
         <div>
+          <label for="baselayer_hillshade_greyscale" class="disabled"><input type="radio" name="baselayer" id="baselayer_hillshade_greyscale" disabled on:change={
+              (e) => toggleBaselayer("hillshade_greyscale")
+          }> 2022 hillshade</label>
+          (page 9 of <a href="https://tukmangeospatial.egnyte.com/dl/ADWSBBL7ac" target="_blank">LIDAR derivatives</a>)
+        </div>
+        <div>
           <label for="baselayer_hillshade_color_enhanced" class="disabled"><input type="radio" name="baselayer" id="baselayer_hillshade_color_enhanced" disabled on:change={
               (e) => toggleBaselayer("hillshade_color_enhanced")
           }> 2022 color-enhanced hillshade</label>
-          (<a href="https://tukmangeospatial.egnyte.com/dl/ADWSBBL7ac" target="_blank">LIDAR derivative hillshade</a> + <a href="https://landscapearchaeology.org/2021/texture-shading/" target="_blank">fractional-Laplacian sharpened</a> elevation overlay)
+          (<a href="https://landscapearchaeology.org/2021/texture-shading/" target="_blank">fractional-Laplacian sharpened</a> as a color overlay)
         </div>
         <div id="zoom_in_message" class="indent" style="margin-top: 0.25em">
           (Zoom in to allow disabled baselayers.)
