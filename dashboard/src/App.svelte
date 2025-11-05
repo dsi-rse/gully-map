@@ -168,39 +168,35 @@
   function toggleBaselayer(layer) {
     if (map != null) {
       if (layer == "basic") {
-        map.setLayoutProperty("aerial_2013", "visibility", "none");
-        map.setLayoutProperty("aerial_2021", "visibility", "none");
-        map.setLayoutProperty("hillshade_greyscale", "visibility", "none");
-        map.setLayoutProperty("elevation_contours", "visibility", "none");
-        map.setLayoutProperty("hillshade_color_enhanced", "visibility", "none");
+        for (const name of Object.keys(highres_layers)) {
+          map.setLayoutProperty(name, "visibility", "none");
+        }
+        toggleBaselayerContours();
       }
-      else if (layer == "aerial_2013") {
-        map.setLayoutProperty("aerial_2013", "visibility", "visible");
-        map.setLayoutProperty("aerial_2021", "visibility", "none");
-        map.setLayoutProperty("hillshade_greyscale", "visibility", "none");
-        map.setLayoutProperty("elevation_contours", "visibility", "none");
-        map.setLayoutProperty("hillshade_color_enhanced", "visibility", "none");
+      else {
+        for (const name of Object.keys(highres_layers)) {
+          map.setLayoutProperty(name, "visibility", layer == name ? "visible" : "none");
+        }
+        toggleBaselayerContours();
       }
-      else if (layer == "aerial_2022") {
-        map.setLayoutProperty("aerial_2013", "visibility", "none");
-        map.setLayoutProperty("aerial_2021", "visibility", "visible");
-        map.setLayoutProperty("hillshade_greyscale", "visibility", "none");
-        map.setLayoutProperty("elevation_contours", "visibility", "none");
-        map.setLayoutProperty("hillshade_color_enhanced", "visibility", "none");
+    }
+  }
+
+  function toggleBaselayerContours() {
+    if (map != null) {
+      const hillshade_checked = document.getElementById("baselayer_hillshade_greyscale").checked;
+      const contours_checked = document.getElementById("baselayer_hillshade_greyscale_contours").checked;
+      if (hillshade_checked  &&  contours_checked) {
+        map.setLayoutProperty("elevation_contours_outline", "visibility", "visible");
+        map.setLayoutProperty("elevation_contours_50", "visibility", "visible");
+        map.setLayoutProperty("elevation_contours_10", "visibility", "visible");
+        map.setLayoutProperty("elevation_contours_label", "visibility", "visible");
       }
-      else if (layer == "hillshade_greyscale") {
-        map.setLayoutProperty("aerial_2013", "visibility", "none");
-        map.setLayoutProperty("aerial_2021", "visibility", "none");
-        map.setLayoutProperty("hillshade_greyscale", "visibility", "visible");
-        map.setLayoutProperty("elevation_contours", "visibility", "visible");
-        map.setLayoutProperty("hillshade_color_enhanced", "visibility", "none");
-      }
-      else if (layer == "hillshade_color_enhanced") {
-        map.setLayoutProperty("aerial_2013", "visibility", "none");
-        map.setLayoutProperty("aerial_2021", "visibility", "none");
-        map.setLayoutProperty("hillshade_greyscale", "visibility", "none");
-        map.setLayoutProperty("elevation_contours", "visibility", "none");
-        map.setLayoutProperty("hillshade_color_enhanced", "visibility", "visible");
+      else {
+        map.setLayoutProperty("elevation_contours_outline", "visibility", "none");
+        map.setLayoutProperty("elevation_contours_50", "visibility", "none");
+        map.setLayoutProperty("elevation_contours_10", "visibility", "none");
+        map.setLayoutProperty("elevation_contours_label", "visibility", "none");
       }
     }
   }
@@ -610,8 +606,17 @@
     }
     document.getElementById("line-is-too-long").style.display = "none";
 
-    const firstPoint = { longitude: coords[0][0], latitude: coords[0][1] };
-    const distances = coords.map(([lng, lat]) => getDistance(firstPoint, { longitude: lng, latitude: lat }, 0.01));
+    let cumulative = 0;
+    let distances = [];
+    let prevPoint = null;
+    for (const [lng, lat] of coords) {
+      const thisPoint = { longitude: lng, latitude: lat };
+      if (prevPoint !== null) {
+        cumulative += getDistance(prevPoint, thisPoint, 0.01);
+      }
+      distances.push(cumulative);
+      prevPoint = thisPoint;
+    }
 
     const tiles = coords.map(([lng, lat]) => getTile(...tileIndex(lng, lat)));
     const pixelIndexes = coords.map(([lng, lat]) => pixelIndex(lng, lat));
@@ -674,11 +679,12 @@
     elevation_difference_plot.setScale("y", { min: difference_low - 2, max: difference_high + 2 });
   }
 
+  // name: minzoom
   const highres_layers = {
-    "baselayer_aerial_2013": 14,
-    "baselayer_aerial_2021": 12,
-    "baselayer_hillshade_greyscale": 9,
-    "baselayer_hillshade_color_enhanced": 9,
+    "aerial_2013": 14,
+    "aerial_2021": 12,
+    "hillshade_greyscale": 9,
+    "hillshade_color_enhanced": 12,
   };
 
 </script>
@@ -697,18 +703,20 @@
       onzoomend={(e) => {
           let all_visible = true;
           for (const [name, minzoom] of Object.entries(highres_layers)) {
+              const checkbox = document.getElementById("baselayer_" + name);
+              const label = document.querySelector('label[for="baselayer_' + name + '"]');
               if (e.target.getZoom() < minzoom) {
-                  if (document.getElementById(name).checked) {
+                  if (checkbox.checked) {
                       toggleBaselayer("basic");
                       document.getElementById("baselayer_basic").checked = true;
                   }
-                  document.getElementById(name).disabled = true;
-                  document.querySelector('label[for="' + name + '"]').classList.add("disabled");
+                  checkbox.disabled = true;
+                  label.classList.add("disabled");
                   all_visible = false;
               }
               else {
-                  document.getElementById(name).disabled = false;
-                  document.querySelector('label[for="' + name + '"]').classList.remove("disabled");
+                  checkbox.disabled = false;
+                  label.classList.remove("disabled");
               }
           }
           document.getElementById("zoom_in_message").style.display = all_visible ? "none" : "block";
@@ -753,24 +761,29 @@ ${f.type}; ${f.description}`;
         </div>
         <div>
           <label for="baselayer_aerial_2021" class="disabled"><input type="radio" name="baselayer" id="baselayer_aerial_2021" disabled on:change={
-              (e) => toggleBaselayer("aerial_2022")
+              (e) => toggleBaselayer("aerial_2021")
           }> 2021 aerial photography</label>
           (<a href="https://gis.sonomacounty.ca.gov/datasets/dc026cbfb9884d51a65dae1846bf76a5/explore?location=38.472153%2C-122.943650%2C10.18" target="_blank">Sonoma GIS</a>,
           <a href="https://www.arcgis.com/home/item.html?id=0c361a688a5a453487021132c878e870" target="_blank">through Esri</a>)
         </div>
         <div>
-          <label for="baselayer_hillshade_greyscale" class="disabled"><input type="radio" name="baselayer" id="baselayer_hillshade_greyscale" disabled on:change={
+          <label for="baselayer_hillshade_greyscale"><input type="radio" name="baselayer" id="baselayer_hillshade_greyscale" on:change={
               (e) => toggleBaselayer("hillshade_greyscale")
           }> 2022 hillshade</label>
           (page 9 of <a href="https://tukmangeospatial.egnyte.com/dl/ADWSBBL7ac" target="_blank">LIDAR derivatives</a>)
+        </div>
+        <div class="indent">
+          <label><input type="checkbox" id="baselayer_hillshade_greyscale_contours" checked on:change={
+              (e) => toggleBaselayerContours()
+          }> ... with 10 m contours</label>
         </div>
         <div>
           <label for="baselayer_hillshade_color_enhanced" class="disabled"><input type="radio" name="baselayer" id="baselayer_hillshade_color_enhanced" disabled on:change={
               (e) => toggleBaselayer("hillshade_color_enhanced")
           }> 2022 color-enhanced hillshade</label>
-          (<a href="https://landscapearchaeology.org/2021/texture-shading/" target="_blank">fractional-Laplacian sharpened</a> as a color overlay)
+          (<a href="https://landscapearchaeology.org/2021/texture-shading/" target="_blank">fractional-Laplacian sharpened</a> overlay)
         </div>
-        <div id="zoom_in_message" class="indent" style="margin-top: 0.25em">
+        <div id="zoom_in_message" class="indent" style="margin-top: 0.5em">
           (Zoom in to allow disabled baselayers.)
         </div>
       </div>
@@ -850,7 +863,7 @@ ${f.type}; ${f.description}`;
             </svg>
           </span> deposition)
         </div>
-        <div>
+        <div class="indent">
           <label><input type="checkbox" id="elevation_difference_contours_fill" checked on:change={() => toggleElevationContours()}> ...and fill in the polygons</label>
         </div>
       </div>
