@@ -1,3 +1,6 @@
+/**
+ * Helpers for calculating elevation measurements along user-drawn paths.
+ */
 import { getDistance } from "geolib";
 
 import {
@@ -16,9 +19,19 @@ export interface LineMeasurementOptions {
   plotManager: ElevationPlotManager;
 }
 
+/**
+ * Build a controller that samples elevation tiles for a polyline and updates plots.
+ * @param options Dependencies required to update the plot visuals.
+ * @returns An object exposing an updateLine method used during drawing interactions.
+ */
 export function createLineMeasurementController(
   options: LineMeasurementOptions,
 ): { updateLine: (coordinates: Coordinate[], isFinal: boolean) => void } {
+  /**
+   * Consume a new set of coordinates to refresh the plots.
+   * @param coordinates Coordinates representing the drawn path.
+  * @param isFinal When true, waits for all tiles before finalising the plots.
+   */
   function updateLine(coordinates: Coordinate[], isFinal: boolean): void {
     if (coordinates.length === 0) {
       return;
@@ -46,6 +59,12 @@ export function createLineMeasurementController(
     }
   }
 
+  /**
+   * Periodically resample tiles until both years finish loading, keeping the plots responsive.
+   * @param tiles Elevation tiles covering the measurement path.
+   * @param distances Cumulative distances for the polyline.
+   * @param pixelPositions Pixel offsets within each tile.
+   */
   async function watchUntilReady(
     tiles: ElevationTile[],
     distances: number[],
@@ -60,6 +79,12 @@ export function createLineMeasurementController(
     }
   }
 
+  /**
+   * Sample the supplied tiles and forward data to the elevation plot manager.
+   * @param distances Distances for the current polyline.
+   * @param tiles Cached elevation tiles.
+   * @param pixelPositions Pixel indexes paired to each coordinate.
+   */
   function draw(
     distances: number[],
     tiles: ElevationTile[],
@@ -77,6 +102,11 @@ export function createLineMeasurementController(
   return { updateLine };
 }
 
+/**
+ * Generate cumulative distances along the supplied coordinates.
+ * @param coordinates Path coordinates.
+ * @returns An array where each item is the cumulative distance from the start.
+ */
 function cumulativeDistances(coordinates: Coordinate[]): number[] {
   let cumulative = 0;
   let previous: { longitude: number; latitude: number } | null = null;
@@ -94,6 +124,11 @@ function cumulativeDistances(coordinates: Coordinate[]): number[] {
   return results;
 }
 
+/**
+ * Promise-based helper for delaying execution.
+ * @param ms Number of milliseconds to wait.
+ * @returns A promise that resolves after the specified delay.
+ */
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);

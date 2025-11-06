@@ -1,3 +1,6 @@
+/**
+ * Manages PMTiles elevation downloads, caching and conversions ready for plotting.
+ */
 import { PMTiles } from "pmtiles";
 import upng from "upng-js";
 
@@ -27,6 +30,12 @@ interface CachedElevationTile extends ElevationTile {
 
 const cacheOrder: TileKey[] = [];
 
+/**
+ * Compute the PMTiles tile indices covering a longitude/latitude pair.
+ * @param lng Longitude in degrees.
+ * @param lat Latitude in degrees.
+ * @returns [x, y] tile coordinates at the configured zoom level.
+ */
 export function tileIndex(lng: number, lat: number): [number, number] {
   const tileX = Math.floor(((lng + 180) / 360) * Math.pow(2, TILE_ZOOM));
   const tileY = Math.floor(
@@ -36,6 +45,12 @@ export function tileIndex(lng: number, lat: number): [number, number] {
   return [tileX, tileY];
 }
 
+/**
+ * Translate geographic coordinates into pixel offsets within a PMTiles tile.
+ * @param lng Longitude in degrees.
+ * @param lat Latitude in degrees.
+ * @returns [x, y] pixel coordinates.
+ */
 export function pixelIndex(lng: number, lat: number): [number, number] {
   const scale = TILE_SIZE * Math.pow(2, TILE_ZOOM);
   const worldX = (lng + 180) / 360;
@@ -48,6 +63,12 @@ export function pixelIndex(lng: number, lat: number): [number, number] {
   return [x, y];
 }
 
+/**
+ * Retrieve a tile from cache or start an asynchronous download when missing.
+ * @param tileX X index at the configured zoom.
+ * @param tileY Y index at the configured zoom.
+ * @returns A tile wrapper exposing sample functions plus loading state.
+ */
 export function getTile(tileX: number, tileY: number): ElevationTile {
   const key = createKey(tileX, tileY);
 
@@ -71,6 +92,12 @@ export function getTile(tileX: number, tileY: number): ElevationTile {
   return tile;
 }
 
+/**
+ * Download both years worth of elevation data for the supplied tile coordinates.
+ * @param tileX X index for the tile.
+ * @param tileY Y index for the tile.
+ * @returns A cached tile wrapper that lazily exposes tile data once available.
+ */
 function downloadTile(tileX: number, tileY: number): CachedElevationTile {
   let view2013: DataView | null = null;
   let view2022: DataView | null = null;
@@ -101,6 +128,10 @@ function downloadTile(tileX: number, tileY: number): CachedElevationTile {
     handleError2022,
   );
 
+  /**
+   * Retry downloads for the 2013 dataset, tracking errors for diagnostics.
+   * @param error Failure encountered while downloading a tile.
+   */
   function handleError2013(error: unknown): void {
     errors2013.push(error);
     if (retries2013-- > 0) {
@@ -118,6 +149,10 @@ function downloadTile(tileX: number, tileY: number): CachedElevationTile {
     }
   }
 
+  /**
+   * Retry downloads for the 2022 dataset, tracking errors for diagnostics.
+   * @param error Failure encountered while downloading a tile.
+   */
   function handleError2022(error: unknown): void {
     errors2022.push(error);
     if (retries2022-- > 0) {
@@ -135,6 +170,13 @@ function downloadTile(tileX: number, tileY: number): CachedElevationTile {
     }
   }
 
+  /**
+   * Read an elevation value from the provided data view.
+   * @param view Data buffer for a tile.
+   * @param x Pixel x coordinate.
+   * @param y Pixel y coordinate.
+   * @returns The elevation scalar or null when unavailable.
+   */
   function valueFromView(view: DataView | null, x: number, y: number): number | null {
     if (!view || x < 0 || y < 0 || x >= TILE_SIZE || y >= TILE_SIZE) {
       return null;
@@ -145,6 +187,7 @@ function downloadTile(tileX: number, tileY: number): CachedElevationTile {
     return value < 3e38 ? value : null;
   }
 
+  /** Maintain LRU ordering when a cached tile is accessed. */
   const touch = (): void => {
     const index = cacheOrder.indexOf(createKey(tileX, tileY));
     if (index >= 0) {
@@ -161,20 +204,42 @@ function downloadTile(tileX: number, tileY: number): CachedElevationTile {
   };
 }
 
+/**
+ * Decode a PMTiles PNG response into a DataView for sampling.
+ * @param data Raw tile data.
+ * @returns A DataView exposing the elevation floats.
+ */
 function decodeToView(data: ArrayBuffer | Uint8Array): DataView | null {
   const image = upng.decode(data);
   const rgba = upng.toRGBA8(image)[0];
   return new DataView(rgba, 0, rgba.length);
 }
 
+/**
+ * Create a string key for caching tiles.
+ * @param tileX X coordinate.
+ * @param tileY Y coordinate.
+ * @returns Unique cache key string.
+ */
 function createKey(tileX: number, tileY: number): TileKey {
   return `${tileX}:${tileY}`;
 }
 
+/**
+ * Convert degrees to radians.
+ * @param degrees Angle in degrees.
+ * @returns Angle in radians.
+ */
 function toRadians(degrees: number): number {
   return (degrees * Math.PI) / 180;
 }
 
+/**
+ * Positive modulus helper that handles negative inputs gracefully.
+ * @param n Value to wrap.
+ * @param m Modulus base.
+ * @returns Wrapped value in the [0, m) interval.
+ */
 function mod(n: number, m: number): number {
   return ((n % m) + m) % m;
 }

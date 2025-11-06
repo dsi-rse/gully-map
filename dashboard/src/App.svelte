@@ -1,4 +1,7 @@
 <script lang="ts">
+  /**
+   * Main dashboard component coordinating map interactions, plotting, and UI state.
+   */
   import { onMount } from "svelte";
   import maplibregl from "maplibre-gl";
   import type { StyleSpecification } from "maplibre-gl";
@@ -54,6 +57,10 @@
   let elevationPlotManager: ReturnType<typeof createElevationPlotManager> | null = null;
   let lineMeasurementController: ReturnType<typeof createLineMeasurementController> | null = null;
 
+  /**
+   * React to horizontal pane width updates from the splitter controller.
+   * @param width Current width of the right-hand pane in pixels.
+   */
   function handleRightPaneWidthChange(width: number): void {
     rightPaneWidth = width;
     elevationPlotManager?.resize();
@@ -116,6 +123,7 @@
   $: leftPaneWidthCss = `calc(100vw - 10px - ${rightPaneWidth}px)`;
   $: hillshadeContoursVisible = baseLayer === "hillshade_greyscale" && showBaseLayerContours;
 
+  /** Initialise controllers and global listeners when the component mounts. */
   onMount(() => {
     elevationPlotManager = createElevationPlotManager({
       container: elevationPlotContainer,
@@ -160,6 +168,10 @@
     };
   });
 
+  /**
+   * Enable drawing while the shift key is pressed.
+   * @param event Keyboard event dispatched on window.
+   */
   function handleWindowKeydown(event: KeyboardEvent): void {
     if (event.key === "Shift" && !shiftDown) {
       shiftDown = true;
@@ -167,6 +179,10 @@
     }
   }
 
+  /**
+   * Disable temporary drawing once the shift key is released.
+   * @param event Keyboard event dispatched on window.
+   */
   function handleWindowKeyup(event: KeyboardEvent): void {
     if (event.key === "Shift" && shiftDown) {
       shiftDown = false;
@@ -174,12 +190,20 @@
     }
   }
 
+  /**
+   * Sync draw-mode checkbox state with the controller.
+   * @param event Change event from the draw toggle checkbox.
+   */
   function handleDrawToggleChange(event: Event): void {
     const target = event.currentTarget as HTMLInputElement;
     userDrawToggle = target.checked;
     drawingController.setUserToggle(userDrawToggle, map);
   }
 
+  /**
+   * Initialise MapLibre specific listeners and layer state once the map loads.
+   * @param loadedMap MapLibre instance provided by the component.
+   */
   function handleMapLoad(loadedMap: maplibregl.Map): void {
     map = loadedMap;
     map.boxZoom.disable();
@@ -199,6 +223,7 @@
     applyCurrentLayerState();
   }
 
+  /** Apply the current base layer and overlay selections to the map instance. */
   function applyCurrentLayerState(): void {
     if (!map) {
       return;
@@ -219,6 +244,10 @@
     setLayerVisibility("gully_detection_pass3", showGullyLines);
   }
 
+  /**
+   * Keep layer availability in sync with the current zoom level.
+   * @param event Map zoom event.
+   */
   function handleMapZoom(event: MapZoomEvent): void {
     const zoomLevel = event.target.getZoom();
     highResAvailability = getAvailableHighResLayers(zoomLevel);
@@ -228,6 +257,10 @@
     parcelZoomMessageVisible = zoomLevel < 14;
   }
 
+  /**
+   * Capture and display parcel details and coordinates for the clicked location.
+   * @param event Map click event.
+   */
   function handleMapClick(event: maplibregl.MapMouseEvent): void {
     const { lng, lat } = event.lngLat;
     lastClickedCoordinates = [lng, lat];
@@ -256,10 +289,19 @@
     };
   }
 
+  /**
+   * Normalise empty string values read from feature properties.
+   * @param value Property value from MapLibre.
+   * @returns A trimmed string when present, otherwise undefined.
+   */
   function ensureString(value: unknown): string | undefined {
     return typeof value === "string" && value.trim().length > 0 ? value : undefined;
   }
 
+  /**
+   * Highlight the nearest drawn point when users hover the elevation plots.
+   * @param index Index reported by the plot cursor.
+   */
   function handlePlotCursorMove(index: number | null): void {
     if (!map) {
       return;
@@ -276,6 +318,11 @@
     }
   }
 
+  /**
+   * Convenience wrapper to flip layer visibility flags via MapLibre.
+   * @param layerId Layer identifier.
+   * @param visible Desired visibility.
+   */
   function setLayerVisibility(layerId: string, visible: boolean): void {
     if (!map) {
       return;
@@ -283,6 +330,11 @@
     map.setLayoutProperty(layerId, "visibility", visible ? "visible" : "none");
   }
 
+  /**
+   * Format numbers for display as longitude/latitude pairs.
+   * @param value Numeric coordinate value.
+   * @returns A fixed-length coordinate string.
+   */
   function formatCoordinate(value: number): string {
     return value.toFixed(6);
   }

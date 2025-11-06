@@ -1,3 +1,6 @@
+/**
+ * Utilities for constructing and managing uPlot elevation visualisations.
+ */
 import type uPlot from "uplot";
 
 export interface ElevationPlotManagerElements {
@@ -32,12 +35,18 @@ const ELEVATION_MARGIN = 5;
 const DIFFERENCE_MARGIN = 2;
 const PADDING: [number, number, number, number] = [8, 8, 0, 0];
 
+/**
+ * Build an elevation plot manager responsible for initialising, updating and disposing charts.
+ * @param options DOM references and callbacks required to drive the plots.
+ * @returns A manager exposing lifecycle and update helpers.
+ */
 export function createElevationPlotManager(
   options: ElevationPlotManagerOptions,
 ): ElevationPlotManager {
   let elevationPlot: uPlot | null = null;
   let differencePlot: uPlot | null = null;
 
+  /** Tear down any instantiated charts to keep uPlot resource usage in check. */
   function destroy(): void {
     elevationPlot?.destroy();
     differencePlot?.destroy();
@@ -45,12 +54,17 @@ export function createElevationPlotManager(
     differencePlot = null;
   }
 
+  /**
+   * Compute the current chart dimensions based on the container width.
+   * @returns The width and height to apply to each plot.
+   */
   function getDimensions(): { width: number; height: number } {
     const width = options.container?.clientWidth ?? 300;
     const height = Math.round(width * 2 / 3);
     return { width, height };
   }
 
+  /** Lazily instantiate the charts once the required DOM mounts exist. */
   function ensureInitialized(): void {
     if (!options.elevationPlot || !options.differencePlot) {
       return;
@@ -118,6 +132,7 @@ export function createElevationPlotManager(
     }
   }
 
+  /** Resize plots when the available width changes. */
   function resize(): void {
     if (!elevationPlot && !differencePlot) {
       return;
@@ -129,6 +144,12 @@ export function createElevationPlotManager(
     differencePlot?.setSize({ width, height });
   }
 
+  /**
+   * Push new data into the plots and keep axes/visibility in sync.
+   * @param distances Distance values used for the X axis.
+   * @param values2013 Elevation values for the 2013 dataset.
+   * @param values2022 Elevation values for the 2022 dataset.
+   */
   function update(
     distances: number[],
     values2013: Array<number | null>,
@@ -187,6 +208,10 @@ export function createElevationPlotManager(
     });
   }
 
+  /**
+   * Toggle the warning banner that indicates the drawn line exceeded safe tile limits.
+   * @param tooLong Whether the line length should be considered invalid.
+   */
   function setLineTooLong(tooLong: boolean): void {
     if (!options.warningBanner) {
       return;
@@ -194,6 +219,7 @@ export function createElevationPlotManager(
     options.warningBanner.style.display = tooLong ? "block" : "none";
   }
 
+  /** Reset and initialise plots in one call, primarily for component mount. */
   function initialize(): void {
     destroy();
     ensureInitialized();
@@ -208,18 +234,37 @@ export function createElevationPlotManager(
   };
 }
 
+/**
+ * Hide a plot element without removing it from the DOM.
+ * @param element Host element for the chart.
+ */
 function hideElement(element: HTMLElement): void {
   element.style.visibility = "hidden";
 }
 
+/**
+ * Make a plot element visible.
+ * @param element Host element for the chart.
+ */
 function showElement(element: HTMLElement): void {
   element.style.visibility = "visible";
 }
 
+/**
+ * Type guard for filtering finite numeric values from nullable datasets.
+ * @param value Candidate value.
+ * @returns True when the input is a finite number.
+ */
 function isFiniteNumber(value: number | null): value is number {
   return value !== null && Number.isFinite(value);
 }
 
+/**
+ * Calculate the low and high percentile bounds for a dataset.
+ * @param data Source values, potentially including nulls.
+ * @param p Percentile expressed as a 0-1 fraction.
+ * @returns A tuple [low, high] percentile values.
+ */
 function percentileRange(data: Array<number | null>, p: number): [number, number] {
   const sorted = data
     .filter(isFiniteNumber)
