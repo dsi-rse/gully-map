@@ -371,9 +371,9 @@
         <h3>Base layer</h3>
         <div>
           <div style="display: flex; width: 100%;">
-            <label for="baselayer_slider" style="white-space: nowrap;">Hidden</label>
+            <label for="baselayer-slider" style="white-space: nowrap;">Hidden</label>
             <input
-              id="baselayer_slider"
+              id="baselayer-slider"
               type="range"
               min="0"
               max="1"
@@ -381,7 +381,7 @@
               bind:value={baseLayerOpacity}
               style="flex: 1;"
             />
-            <label for="baselayer_slider" style="white-space: nowrap;">Visible</label>
+            <label for="baselayer-slider" style="white-space: nowrap;">Visible</label>
           </div>
         </div>
         <div>
@@ -393,11 +393,11 @@
         </div>
         <div>
           <label
-            for="baselayer_aerial_2013"
+            for="baselayer-aerial-2013"
             class:disabled={!highResAvailability.aerial_2013}
           >
             <input
-              id="baselayer_aerial_2013"
+              id="baselayer-aerial-2013"
               type="radio"
               name="baselayer"
               value="aerial_2013"
@@ -411,11 +411,11 @@
         </div>
         <div>
           <label
-            for="baselayer_aerial_2021"
+            for="baselayer-aerial-2021"
             class:disabled={!highResAvailability.aerial_2021}
           >
             <input
-              id="baselayer_aerial_2021"
+              id="baselayer-aerial-2021"
               type="radio"
               name="baselayer"
               value="aerial_2021"
@@ -460,7 +460,7 @@
           (<a href="https://landscapearchaeology.org/2021/texture-shading/" target="_blank">fractional-Laplacian sharpened</a> overlay)
         </div>
         {#if zoomInMessageVisible}
-          <div id="zoom_in_message" class="indent" style="margin-top: 0.5em">
+          <div class="indent" style="margin-top: 0.5em">
             (Zoom in to enable missing baselayers.)
           </div>
         {/if}
@@ -477,9 +477,9 @@
       </div>
       <div class="group">
         <div style="margin-left: 11px;">
-          Last clicked in{#if parcelZoomMessageVisible}<span id="last_clicked_in_zoom_message">&nbsp;(zoom in to enable)</span>{/if}:
+          Last clicked in{#if parcelZoomMessageVisible}<span>&nbsp;(zoom in to enable)</span>{/if}:
         </div>
-        <div id="last_clicked_in" style="min-height: 1em; margin: 5px; padding: 5px; border: 1px solid gray;">
+        <div style="min-height: 1em; margin: 5px; padding: 5px; border: 1px solid gray;">
           {#if lastClickedParcel}
             {#if lastClickedParcel.parcel}
               <b>Parcel ID (APN):</b> {lastClickedParcel.parcel}<br>
@@ -496,9 +496,9 @@
       </div>
       <div class="group">
         <div style="margin-left: 11px;">
-          Last clicked longitude-latitude{#if lastClickedCoordinates}<span id="last_clicked_google_maps">, and <a id="last_clicked_google_maps_href" href={googleMapsHref} target="_blank">link to Google Maps</a></span>{/if}:
+          Last clicked longitude-latitude{#if lastClickedCoordinates}<span>, and <a href={googleMapsHref} target="_blank">link to Google Maps</a></span>{/if}:
         </div>
-        <div id="last_clicked_lng_lat" style="height: 1em; margin: 5px; padding: 5px; border: 1px solid gray; overflow: hidden;">
+        <div style="height: 1em; margin: 5px; padding: 5px; border: 1px solid gray; overflow: hidden;">
           {#if formattedCoordinates}
             {formattedCoordinates}
           {/if}
@@ -594,20 +594,15 @@
       </div>
       <div class="group">
         <div
-          id="line-is-too-long"
           bind:this={lineTooLongBanner}
           style="color: magenta; font-weight: bold; display: none;"
         >
           Line is too long to measure!
         </div>
       </div>
-      <div id="elevation_plot_container" bind:this={elevationPlotContainer}>
-        <div id="elevation_plot" bind:this={elevationPlotElement} style="visibility: hidden;"></div>
-        <div
-          id="elevation_difference_plot"
-          bind:this={elevationDifferenceElement}
-          style="visibility: hidden;"
-        ></div>
+      <div bind:this={elevationPlotContainer}>
+        <div bind:this={elevationPlotElement} style="visibility: hidden;"></div>
+        <div bind:this={elevationDifferenceElement} style="visibility: hidden;"></div>
       </div>
       <div style="height: 100px;"></div>
     </div>
