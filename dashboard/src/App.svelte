@@ -53,6 +53,7 @@
   let elevationDifferenceElement: HTMLDivElement | null = null;
   let lineTooLongBanner: HTMLDivElement | null = null;
   let elevationSection: HTMLDivElement | null = null;
+  let dividerElement: HTMLDivElement | null = null;
 
   let elevationPlotManager: ReturnType<typeof createElevationPlotManager> | null = null;
   let lineMeasurementController: ReturnType<typeof createLineMeasurementController> | null = null;
@@ -116,12 +117,15 @@
   let mapMouseDownHandler: ((event: maplibregl.MapMouseEvent) => void) | null = null;
   let mapMouseMoveHandler: ((event: maplibregl.MapMouseEvent) => void) | null = null;
 
-  let windowMouseMoveHandler: ((event: MouseEvent) => void) | null = null;
-  let windowMouseUpHandler: (() => void) | null = null;
+  let windowPointerMoveHandler: ((event: PointerEvent) => void) | null = null;
+  let windowPointerUpHandler: ((event: PointerEvent) => void) | null = null;
+  let windowPointerCancelHandler: ((event: PointerEvent) => void) | null = null;
 
   let leftPaneWidthCss = "";
   $: leftPaneWidthCss = `calc(100vw - 10px - ${rightPaneWidth}px)`;
   $: hillshadeContoursVisible = baseLayer === "hillshade_greyscale" && showBaseLayerContours;
+
+  let activeDividerPointerId: number | null = null;
 
   /** Initialise controllers and global listeners when the component mounts. */
   onMount(() => {
@@ -137,24 +141,53 @@
 
     lineMeasurementController = createLineMeasurementController({ plotManager: elevationPlotManager });
 
-    windowMouseMoveHandler = (event: MouseEvent) => {
+    windowPointerMoveHandler = (event: PointerEvent) => {
+      if (activeDividerPointerId === null || event.pointerId !== activeDividerPointerId) {
+        return;
+      }
       paneController.handleDrag(event);
     };
-    windowMouseUpHandler = () => {
+    windowPointerUpHandler = (event: PointerEvent) => {
+      if (activeDividerPointerId === null || event.pointerId !== activeDividerPointerId) {
+        return;
+      }
+      if (dividerElement?.hasPointerCapture(event.pointerId)) {
+        dividerElement.releasePointerCapture(event.pointerId);
+      }
+      activeDividerPointerId = null;
+      paneController.stopDrag();
+    };
+    windowPointerCancelHandler = (event: PointerEvent) => {
+      if (activeDividerPointerId === null || event.pointerId !== activeDividerPointerId) {
+        return;
+      }
+      if (dividerElement?.hasPointerCapture(event.pointerId)) {
+        dividerElement.releasePointerCapture(event.pointerId);
+      }
+      activeDividerPointerId = null;
       paneController.stopDrag();
     };
 
-    window.addEventListener("mousemove", windowMouseMoveHandler);
-    window.addEventListener("mouseup", windowMouseUpHandler);
+    window.addEventListener("pointermove", windowPointerMoveHandler);
+    window.addEventListener("pointerup", windowPointerUpHandler);
+    window.addEventListener("pointercancel", windowPointerCancelHandler);
     window.addEventListener("keydown", handleWindowKeydown);
     window.addEventListener("keyup", handleWindowKeyup);
 
     return () => {
-      if (windowMouseMoveHandler) {
-        window.removeEventListener("mousemove", windowMouseMoveHandler);
+      if (activeDividerPointerId !== null && dividerElement?.hasPointerCapture(activeDividerPointerId)) {
+        dividerElement.releasePointerCapture(activeDividerPointerId);
       }
-      if (windowMouseUpHandler) {
-        window.removeEventListener("mouseup", windowMouseUpHandler);
+      activeDividerPointerId = null;
+
+      if (windowPointerMoveHandler) {
+        window.removeEventListener("pointermove", windowPointerMoveHandler);
+      }
+      if (windowPointerUpHandler) {
+        window.removeEventListener("pointerup", windowPointerUpHandler);
+      }
+      if (windowPointerCancelHandler) {
+        window.removeEventListener("pointercancel", windowPointerCancelHandler);
       }
       window.removeEventListener("keydown", handleWindowKeydown);
       window.removeEventListener("keyup", handleWindowKeyup);
@@ -339,6 +372,18 @@
     return value.toFixed(6);
   }
 
+  /**
+   * Begin tracking pointer-based drag events for the divider and capture the pointer.
+   * @param event Pointer event triggered on the divider.
+   */
+  function handleDividerPointerDown(event: PointerEvent): void {
+    event.preventDefault();
+    activeDividerPointerId = event.pointerId;
+    dividerElement?.setPointerCapture(event.pointerId);
+    paneController.startDrag();
+    paneController.handleDrag(event);
+  }
+
   $: if (map) {
     setBaseLayer(map, baseLayer);
   }
@@ -415,7 +460,8 @@
     role="separator"
     aria-orientation="vertical"
     aria-label="Resize panels"
-    on:pointerdown={paneController.startDrag}
+    bind:this={dividerElement}
+    on:pointerdown={handleDividerPointerDown}
   ></div>
   <div class="right-half" style={`width: ${rightPaneWidth}px;`}>
     <div>

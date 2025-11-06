@@ -10,7 +10,7 @@ export interface HorizontalPaneOptions {
 export interface HorizontalPaneController {
   startDrag: () => void;
   stopDrag: () => void;
-  handleDrag: (event: MouseEvent) => void;
+  handleDrag: (event: PointerEvent) => void;
   getRightWidth: () => number;
 }
 
@@ -59,7 +59,7 @@ export function createHorizontalPaneController(
    * Adjust pane widths while dragging.
    * @param event Pointer movement used to determine the new split position.
    */
-  function handleDrag(event: MouseEvent): void {
+  function handleDrag(event: PointerEvent): void {
     if (!isDragging || typeof window === "undefined") {
       return;
     }
