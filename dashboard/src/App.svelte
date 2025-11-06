@@ -39,12 +39,7 @@
 
   type MapZoomEvent = { target: maplibregl.Map };
 
-  function createInitialAvailability(): Record<string, boolean> {
-    return Object.keys(HIGH_RES_LAYERS).reduce<Record<string, boolean>>((result, layerId) => {
-      result[layerId] = false;
-      return result;
-    }, {});
-  }
+  const INITIAL_ZOOM = 9;
 
   const mapStyleSpecification = mapStyle as unknown as StyleSpecification;
 
@@ -82,7 +77,7 @@
     },
   });
 
-  let highResAvailability = createInitialAvailability();
+  let highResAvailability = getAvailableHighResLayers(INITIAL_ZOOM);
   let zoomInMessageVisible = true;
   let parcelZoomMessageVisible = true;
 
@@ -188,6 +183,12 @@
   function handleMapLoad(loadedMap: maplibregl.Map): void {
     map = loadedMap;
     map.boxZoom.disable();
+
+    highResAvailability = getAvailableHighResLayers(map.getZoom());
+    if (baseLayer !== "basic" && !highResAvailability[baseLayer]) {
+      baseLayer = "basic";
+    }
+    parcelZoomMessageVisible = map.getZoom() < 14;
 
     mapMouseDownHandler = (event) => drawingController.handleMouseDown(map!, event);
     mapMouseMoveHandler = (event) => drawingController.handleMouseMove(map!, event);
@@ -427,12 +428,13 @@
           <a href="https://www.arcgis.com/home/item.html?id=0c361a688a5a453487021132c878e870" target="_blank">through Esri</a>)
         </div>
         <div>
-          <label>
+          <label class:disabled={!highResAvailability.hillshade_greyscale}>
             <input
               type="radio"
               name="baselayer"
               value="hillshade_greyscale"
               bind:group={baseLayer}
+              disabled={!highResAvailability.hillshade_greyscale}
             />
             2022 hillshade
           </label>
@@ -445,12 +447,13 @@
           </label>
         </div>
         <div>
-          <label>
+          <label class:disabled={!highResAvailability.hillshade_color_enhanced}>
             <input
               type="radio"
               name="baselayer"
               value="hillshade_color_enhanced"
               bind:group={baseLayer}
+              disabled={!highResAvailability.hillshade_color_enhanced}
             />
             2022 color-enhanced hillshade
           </label>
