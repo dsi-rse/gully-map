@@ -474,11 +474,7 @@
       </div>
       <div class="group">
         <div style="margin-left: 11px;">
-          Last clicked in
-          {#if parcelZoomMessageVisible}
-            <span id="last_clicked_in_zoom_message">&nbsp;(zoom in to enable)</span>
-          {/if}
-          :
+          Last clicked in{#if parcelZoomMessageVisible}<span id="last_clicked_in_zoom_message">&nbsp;(zoom in to enable)</span>{/if}:
         </div>
         <div id="last_clicked_in" style="min-height: 1em; margin: 5px; padding: 5px; border: 1px solid gray;">
           {#if lastClickedParcel}
@@ -497,13 +493,7 @@
       </div>
       <div class="group">
         <div style="margin-left: 11px;">
-          Last clicked longitude-latitude
-          {#if lastClickedCoordinates}
-            <span id="last_clicked_google_maps">
-              , and <a id="last_clicked_google_maps_href" href={googleMapsHref} target="_blank">link to Google Maps</a>
-            </span>
-          {/if}
-          :
+          Last clicked longitude-latitude{#if lastClickedCoordinates}<span id="last_clicked_google_maps">, and <a id="last_clicked_google_maps_href" href={googleMapsHref} target="_blank">link to Google Maps</a></span>{/if}:
         </div>
         <div id="last_clicked_lng_lat" style="height: 1em; margin: 5px; padding: 5px; border: 1px solid gray; overflow: hidden;">
           {#if formattedCoordinates}
