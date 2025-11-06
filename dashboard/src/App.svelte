@@ -51,23 +51,23 @@
   let lineTooLongBanner: HTMLDivElement | null = null;
   let elevationSection: HTMLDivElement | null = null;
 
-  let plotManager: ReturnType<typeof createElevationPlotManager> | null = null;
-  let lineMeasurement: ReturnType<typeof createLineMeasurementController> | null = null;
+  let elevationPlotManager: ReturnType<typeof createElevationPlotManager> | null = null;
+  let lineMeasurementController: ReturnType<typeof createLineMeasurementController> | null = null;
 
-  function handlePaneWidthChange(width: number): void {
+  function handleRightPaneWidthChange(width: number): void {
     rightPaneWidth = width;
-    plotManager?.resize();
+    elevationPlotManager?.resize();
   }
 
   const paneController = createHorizontalPaneController({
-    onWidthChange: handlePaneWidthChange,
+    onWidthChange: handleRightPaneWidthChange,
   });
 
   let rightPaneWidth = paneController.getRightWidth();
 
   const drawingController = createDrawingController({
     onLineChange: (coordinates, isFinal) => {
-      lineMeasurement?.updateLine(coordinates, isFinal);
+      lineMeasurementController?.updateLine(coordinates, isFinal);
     },
     onDrawingActivated: () => {
       elevationSection?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -103,7 +103,7 @@
   $: drawEnabled = userDrawToggle || shiftDown;
 
   const googleMapsBaseUrl = "https://www.google.com/maps?q=";
-  let googleMapsHref = "";
+  let googleMapsLink = "";
   let formattedCoordinates = "";
 
   let mapMouseDownHandler: ((event: maplibregl.MapMouseEvent) => void) | null = null;
@@ -112,12 +112,12 @@
   let windowMouseMoveHandler: ((event: MouseEvent) => void) | null = null;
   let windowMouseUpHandler: (() => void) | null = null;
 
-  let leftPaneWidthStyle = "";
-  $: leftPaneWidthStyle = `calc(100vw - 10px - ${rightPaneWidth}px)`;
+  let leftPaneWidthCss = "";
+  $: leftPaneWidthCss = `calc(100vw - 10px - ${rightPaneWidth}px)`;
   $: hillshadeContoursVisible = baseLayer === "hillshade_greyscale" && showBaseLayerContours;
 
   onMount(() => {
-    plotManager = createElevationPlotManager({
+    elevationPlotManager = createElevationPlotManager({
       container: elevationPlotContainer,
       elevationPlot: elevationPlotElement,
       differencePlot: elevationDifferenceElement,
@@ -125,9 +125,9 @@
       onCursorMove: handlePlotCursorMove,
       createPlot: (element, config, data) => new uPlot(config, data, element),
     });
-    plotManager.initialize();
+    elevationPlotManager.initialize();
 
-    lineMeasurement = createLineMeasurementController({ plotManager });
+    lineMeasurementController = createLineMeasurementController({ plotManager: elevationPlotManager });
 
     windowMouseMoveHandler = (event: MouseEvent) => {
       paneController.handleDrag(event);
@@ -150,7 +150,7 @@
       }
       window.removeEventListener("keydown", handleWindowKeydown);
       window.removeEventListener("keyup", handleWindowKeyup);
-      plotManager?.destroy();
+      elevationPlotManager?.destroy();
       if (map && mapMouseDownHandler) {
         map.off("mousedown", mapMouseDownHandler);
       }
@@ -336,7 +336,7 @@
     (available) => available,
   );
 
-  $: googleMapsHref = lastClickedCoordinates
+  $: googleMapsLink = lastClickedCoordinates
     ? `${googleMapsBaseUrl}${lastClickedCoordinates[1]},${lastClickedCoordinates[0]}`
     : "";
 
@@ -346,7 +346,7 @@
 </script>
 
 <div class="whole-page">
-  <div class="left-half" style={`width: ${leftPaneWidthStyle};`}>
+  <div class="left-half" style={`width: ${leftPaneWidthCss};`}>
     <MapLibre
       center={[-122.88, 38.46]}
       zoom={9}
@@ -496,7 +496,7 @@
       </div>
       <div class="group">
         <div style="margin-left: 11px;">
-          Last clicked longitude-latitude{#if lastClickedCoordinates}<span>, and <a href={googleMapsHref} target="_blank">link to Google Maps</a></span>{/if}:
+          Last clicked longitude-latitude{#if lastClickedCoordinates}<span>, and <a href={googleMapsLink} target="_blank">link to Google Maps</a></span>{/if}:
         </div>
         <div style="height: 1em; margin: 5px; padding: 5px; border: 1px solid gray; overflow: hidden;">
           {#if formattedCoordinates}
