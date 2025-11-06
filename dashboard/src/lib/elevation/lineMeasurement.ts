@@ -30,7 +30,7 @@ export function createLineMeasurementController(
   /**
    * Consume a new set of coordinates to refresh the plots.
    * @param coordinates Coordinates representing the drawn path.
-  * @param isFinal When true, waits for all tiles before finalising the plots.
+   * @param isFinal When true, waits for all tiles before finalising the plots.
    */
   function updateLine(coordinates: Coordinate[], isFinal: boolean): void {
     if (coordinates.length === 0) {
