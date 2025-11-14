@@ -109,13 +109,30 @@ export function createLineMeasurementController(
       return;
     }
 
-    const values2013 = tiles.map((tile, index) =>
-      tile.value2013(...pixelPositions[index]),
+    const distinctDistances = [];
+    const distinctTiles = [];
+    const distinctPixelPositions = [];
+    let prevPixelPosition = [null, null];
+    pixelPositions.forEach((pixelPosition, index) => {
+      if (
+        (pixelPosition[0] != prevPixelPosition[0])
+        || (pixelPosition[1] != prevPixelPosition[1])
+      ) {
+        distinctDistances.push(distances[index]);
+        distinctTiles.push(tiles[index]);
+        distinctPixelPositions.push(pixelPosition);
+      }
+      prevPixelPosition = pixelPosition;
+    });
+
+    const values2013 = distinctTiles.map((tile, index) =>
+      tile.value2013(...distinctPixelPositions[index])
     );
-    const values2022 = tiles.map((tile, index) =>
-      tile.value2022(...pixelPositions[index]),
+    const values2022 = distinctTiles.map((tile, index) =>
+      tile.value2022(...distinctPixelPositions[index])
     );
-    options.plotManager.update(distances, values2013, values2022);
+
+    options.plotManager.update(distinctDistances, values2013, values2022);
   }
 
   return { updateLine };
