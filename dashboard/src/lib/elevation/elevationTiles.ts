@@ -56,8 +56,8 @@ export function pixelIndex(lng: number, lat: number): [number, number] {
   const worldX = (lng + 180) / 360;
   const sinLat = Math.sin(toRadians(lat));
   const worldY = 0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI);
-  const pixelX = Math.round(worldX * scale);
-  const pixelY = Math.round(worldY * scale);
+  const pixelX = Math.floor(worldX * scale);
+  const pixelY = Math.floor(worldY * scale);
   const x = mod(pixelX, TILE_SIZE);
   const y = mod(pixelY, TILE_SIZE);
   return [x, y];
