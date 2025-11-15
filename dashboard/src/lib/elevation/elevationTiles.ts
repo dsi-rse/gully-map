@@ -92,6 +92,14 @@ export function getTile(tileX: number, tileY: number): ElevationTile {
   return tile;
 }
 
+// For computing the median of neighboring pixels
+const NEIGHBORS = [
+  [-1, -1], [ 0, -1], [ 1, -1],
+  [-1,  0], [ 0,  0], [ 1,  0],
+  [-1,  1], [ 0,  1], [ 1,  1],
+];
+const medianWindow = new Float32Array(9);
+
 /**
  * Download both years worth of elevation data for the supplied tile coordinates.
  * @param tileX X index for the tile.
@@ -178,13 +186,31 @@ function downloadTile(tileX: number, tileY: number): CachedElevationTile {
    * @returns The elevation scalar or null when unavailable.
    */
   function valueFromView(view: DataView | null, x: number, y: number): number | null {
-    if (!view || x < 0 || y < 0 || x >= TILE_SIZE || y >= TILE_SIZE) {
+    if (!view) {
       return null;
     }
 
-    const index = y * TILE_SIZE + x;
-    const value = view.getFloat32(4 * index, true);
-    return value < 3e38 ? value : null;
+    let count = 0;
+    for (const [dx, dy] of NEIGHBORS) {
+      const xx = x + dx;
+      const yy = y + dy;
+      if (0 <= xx && xx < TILE_SIZE && 0 <= yy && yy < TILE_SIZE) {
+        const index = yy * TILE_SIZE + xx;
+        const value = view.getFloat32(4 * index, true);
+        if (value < 3e38) {
+          medianWindow[count++] = value;
+        }
+      }
+    }
+    if (count === 0) {
+      return null;  // No valid values
+    }
+
+    // Sort the populated part of medianWindow
+    const arr = Array.from(medianWindow.subarray(0, count));
+    arr.sort((a, b) => a - b);
+    const mid = Math.floor(count / 2);
+    return count % 2 === 1 ? arr[mid] : (arr[mid - 1] + arr[mid]) / 2;
   }
 
   /** Maintain LRU ordering when a cached tile is accessed. */
