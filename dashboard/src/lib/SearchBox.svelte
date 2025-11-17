@@ -15,7 +15,7 @@
   type ListComponent = { getElement: () => HTMLElement };
 
   const MAX_SEARCH_RESULTS = 10;
-  const DEFAULT_ZOOM = 14;
+  const DEFAULT_ZOOM = 15;
   const ENTER_KEY = "Enter";
   const TAB_KEY = "Tab";
 

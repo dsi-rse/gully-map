@@ -199,7 +199,7 @@ export function createElevationPlotManager(
     }
 
     showElement(options.differencePlot);
-    const [differenceLow, differenceHigh] = percentileRange(difference, 0.05);
+    const [differenceLow, differenceHigh] = percentileRange(difference, 0.02);
     differencePlot.setData([distances, difference]);
     differencePlot.setScale("x", { min: 0, max: distances[distances.length - 1] ?? 0 });
     differencePlot.setScale("y", {

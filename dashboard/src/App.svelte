@@ -476,7 +476,7 @@
   <div class="right-half" style={`width: ${rightPaneWidth}px;`}>
     <div>
       <div class="group">
-        <h3>Base layer</h3>
+        <h1>Base layer</h1>
         <div>
           <div style="display: flex; width: 100%;">
             <label for="baselayer-slider" style="white-space: nowrap;">Hidden</label>
@@ -574,7 +574,7 @@
         {/if}
       </div>
       <div class="group">
-        <h3>Land ownership</h3>
+        <h1>Land ownership</h1>
         <div>
           <label>
             <input type="checkbox" bind:checked={showParcels} />
@@ -587,7 +587,7 @@
         <div style="margin-left: 11px;">
           Last clicked in{#if parcelZoomMessageVisible}<span>&nbsp;(zoom in to enable)</span>{/if}:
         </div>
-        <div style="min-height: 1em; margin: 5px; padding: 5px; border: 1px solid gray;">
+        <div style="min-height: 1em; margin: 0px 5px 5px 5px; padding: 5px; border: 1px solid gray;">
           {#if lastClickedParcel}
             {#if lastClickedParcel.parcel}
               <b>Parcel ID (APN):</b> {lastClickedParcel.parcel}<br>
@@ -601,19 +601,17 @@
             {#if lastClickedParcel.description}{lastClickedParcel.description}{/if}
           {/if}
         </div>
-      </div>
-      <div class="group">
         <div style="margin-left: 11px;">
           Last clicked longitude-latitude{#if lastClickedCoordinates}<span>, and <a href={googleMapsLink} target="_blank">link to Google Maps</a></span>{/if}:
         </div>
-        <div style="height: 1em; margin: 5px; padding: 5px; border: 1px solid gray; overflow: hidden;">
+        <div style="height: 1em; margin: 0px 5px 5px 5px; padding: 5px; border: 1px solid gray; overflow: hidden;">
           {#if formattedCoordinates}
             {formattedCoordinates}
           {/if}
         </div>
       </div>
       <div class="group">
-        <h3>Fire hazard</h3>
+        <h1>Fire hazard</h1>
         <div>
           <label>
             <input type="radio" name="ladderlayer" value="none" bind:group={ladderLayer} />
@@ -637,7 +635,7 @@
         </div>
       </div>
       <div class="group">
-        <h3>Gullies</h3>
+        <h1>Gullies</h1>
         <div>
           <label>
             <input type="checkbox" bind:checked={showGullyProbability} />
@@ -652,7 +650,7 @@
         </div>
       </div>
       <div class="group">
-        <h3>Erosion</h3>
+        <h1>Erosion</h1>
         <div>
           <label>
             <input type="checkbox" bind:checked={showElevationContours} />
@@ -684,7 +682,7 @@
         </div>
       </div>
       <div class="group" bind:this={elevationSection}>
-        <h3>Elevation along line</h3>
+        <h1>Elevation along line</h1>
         <div>
           <label for="draw-toggle">
             <input
@@ -720,6 +718,13 @@
 <style>
   :global(body) {
     margin: 0;
+    font-family: Roboto, Arial, sans-serif;
+    line-height: 1.4;
+  }
+
+  :global(h1) {
+    font-size: 1.25rem;
+    color: #505050;
   }
 
   :global(.whole-page) {
