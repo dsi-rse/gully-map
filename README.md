@@ -12,7 +12,7 @@ Intro text...
 * zoom: 0..14
 * bounds: -123.532896, 38.11246, -122.350206, 38.8527739
 * layer: `parcels`
-* fields: `parcel`, `type`, `description`, address`, `city`
+* fields: `parcel`, `type`, `description`, `address`, `city`
 
 <img src="README-img/sonoma-county-parcels.png" width="400">
 
