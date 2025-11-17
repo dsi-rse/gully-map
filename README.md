@@ -1,8 +1,18 @@
 # oaec-found-gully
 
-Intro text...
+TODO: Intro text...
 
 # Data products
+
+TODO: point to [config.json](config.json) and explain how to
+
+```
+docker run --rm -it -v $(pwd):/data -p 8080:8080 maptiler/tileserver-gl:latest
+```
+
+and load into QGIS:
+* Layer > Add Layer > Add XYZ Layer...
+* Layer > Add Layer > Add Vector Tile Layer...
 
 ## sonoma-county-parcels
 
