@@ -476,7 +476,7 @@
   <div class="right-half" style={`width: ${rightPaneWidth}px;`}>
     <div>
       <div class="group">
-        <h1>Base layer</h1>
+        <h1 style="margin-top: 0px;">Base layer</h1>
         <div>
           <div style="display: flex; width: 100%;">
             <label for="baselayer-slider" style="white-space: nowrap;">Hidden</label>
