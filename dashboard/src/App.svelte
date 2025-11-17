@@ -10,6 +10,7 @@
   import uPlot from "uplot";
   import "uplot/dist/uPlot.min.css";
 
+  import SearchBox from "./lib/SearchBox.svelte";
   import mapStyle from "./map-style.json";
 
   import { createHorizontalPaneController } from "./lib/layout/horizontalPane";
@@ -256,6 +257,14 @@
     applyCurrentLayerState();
   }
 
+  function handleFlyTo(item) {
+    if (!map) {
+      return;
+    }
+
+    map.flyTo(item);
+  }
+
   /** Apply the current base layer and overlay selections to the map instance. */
   function applyCurrentLayerState(): void {
     if (!map) {
@@ -454,6 +463,7 @@
       onzoom={handleMapZoom}
       onclick={handleMapClick}
     />
+    <SearchBox onSelect={handleFlyTo} />
   </div>
   <div
     class="divider"
