@@ -41,6 +41,13 @@ const ELEVATION_DIFFERENCE_CONTOUR_LAYERS = {
  * @param layerId Basemap identifier to show.
  */
 export function setBaseLayer(map: MapLibreMap, layerId: BaseLayerId): void {
+  if (layerId == "hillshade_greyscale" || layerId == "hillshade_color_enhanced") {
+    map.setPaintProperty("gully_detection_pass3", "line-color", "#0051ff");
+  }
+  else {
+    map.setPaintProperty("gully_detection_pass3", "line-color", "#9ebdff");
+  }
+
   if (layerId === "basic") {
     Object.keys(HIGH_RES_LAYERS).forEach((id) => {
       map.setLayoutProperty(id, "visibility", "none");

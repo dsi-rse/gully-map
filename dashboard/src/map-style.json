@@ -2456,7 +2456,7 @@
       "source": "gully_detection_pass3",
       "source-layer": "gully_detection_pass3_graph",
       "type": "line",
-      "paint": {"line-color": "white", "line-width": {"stops": [[14, 0], [16, 6]]}},
+      "paint": {"line-color": "white", "line-width": {"stops": [[14, 0], [16, 8]]}},
       "minzoom": 14,
       "layout": {"visibility": "none", "line-cap": "round", "line-join": "round"}
     },
