@@ -485,7 +485,7 @@
         <div>
           <label>
             <input type="radio" name="baselayer" value="basic" bind:group={baseLayer} />
-            Basic topographic map
+            Basic street map with topology
           </label>
           (<a href="https://github.com/nst-guide/osm-liberty-topo" target="_blank">from here</a>)
         </div>
