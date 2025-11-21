@@ -13,34 +13,23 @@ export interface DrawingControllerOptions {
 
 type DrawState = "idle" | "freehand" | "awaiting-second-click";
 
-export interface DrawingController {
-  handleMouseDown: (map: MapLibreMap, event: MapMouseEvent) => void;
-  handleMouseMove: (map: MapLibreMap, event: MapMouseEvent) => void;
-  setUserToggle: (enabled: boolean, map: MapLibreMap | null) => void;
-  setShiftDown: (isDown: boolean, map: MapLibreMap | null) => void;
-  cancelDrawing: (map: MapLibreMap | null) => void;
-  getPoints: () => Coordinate[];
-}
+export class DrawingController {
+  private drawState: DrawState = "idle";
+  private drawPoints: Coordinate[] = [];
+  private userToggleEnabled = false;
+  private shiftEnabled = false;
+  private readonly options: DrawingControllerOptions;
 
-/**
- * Create a drawing controller that coordinates map events, draw state, and plot updates.
- * @param options Handlers used to reflect draw state externally.
- * @returns A controller with event handlers and helpers for map drawing.
- */
-export function createDrawingController(
-  options: DrawingControllerOptions,
-): DrawingController {
-  let drawState: DrawState = "idle";
-  let drawPoints: Coordinate[] = [];
-  let userToggleEnabled = false;
-  let shiftEnabled = false;
+  constructor(options: DrawingControllerOptions) {
+    this.options = options;
+  }
 
   /**
    * Determine whether drawing should intercept user input.
    * @returns True when drawing is enabled via toggle or shift key.
    */
-  function isEnabled(): boolean {
-    return userToggleEnabled || shiftEnabled;
+  private isEnabled(): boolean {
+    return this.userToggleEnabled || this.shiftEnabled;
   }
 
   /**
@@ -48,13 +37,13 @@ export function createDrawingController(
    * @param map MapLibre instance receiving events.
    * @param event Mouse event with geographic data.
    */
-  function handleMouseDown(map: MapLibreMap, event: MapMouseEvent): void {
-    if (!isEnabled() || event.originalEvent.button !== 0) {
+  handleMouseDown(map: MapLibreMap, event: MapMouseEvent): void {
+    if (!this.isEnabled() || event.originalEvent.button !== 0) {
       return;
     }
 
-    if (drawState === "awaiting-second-click") {
-      finishStraightLine(map, event);
+    if (this.drawState === "awaiting-second-click") {
+      this.finishStraightLine(map, event);
       return;
     }
 
@@ -66,7 +55,7 @@ export function createDrawingController(
      * @param moveEvent Current mouse move event.
      */
     const moveListener = (moveEvent: MapMouseEvent): void => {
-      if (!isFirstEvent && drawState === "idle") {
+      if (!isFirstEvent && this.drawState === "idle") {
         detach();
         map.dragPan.enable();
         return;
@@ -74,10 +63,10 @@ export function createDrawingController(
       isFirstEvent = false;
 
       hasMoved = true;
-      if (drawState !== "freehand") {
-        startFreehand(map, event);
+      if (this.drawState !== "freehand") {
+        this.startFreehand(map, event);
       }
-      updateFreehand(map, moveEvent);
+      this.updateFreehand(map, moveEvent);
     };
 
     /**
@@ -90,12 +79,12 @@ export function createDrawingController(
       detach();
       map.dragPan.enable();
 
-      if (drawState === "freehand") {
-        finishFreehand(map);
+      if (this.drawState === "freehand") {
+        this.finishFreehand(map);
       } else if (!hasMoved) {
-        startStraightLine(map, upEvent);
+        this.startStraightLine(map, upEvent);
       } else {
-        cancelDrawing(map);
+        this.cancelDrawing(map);
       }
     };
 
@@ -115,9 +104,9 @@ export function createDrawingController(
    * @param map MapLibre instance.
    * @param event Mouse event containing the pointer location.
    */
-  function handleMouseMove(map: MapLibreMap, event: MapMouseEvent): void {
-    if (drawState === "awaiting-second-click") {
-      updateStraightLine(map, event);
+  handleMouseMove(map: MapLibreMap, event: MapMouseEvent): void {
+    if (this.drawState === "awaiting-second-click") {
+      this.updateStraightLine(map, event);
     }
   }
 
@@ -126,10 +115,10 @@ export function createDrawingController(
    * @param enabled Whether drawing should stay enabled.
    * @param map Optional map reference used to clear drawn state.
    */
-  function setUserToggle(enabled: boolean, map: MapLibreMap | null): void {
-    userToggleEnabled = enabled;
-    if (!isEnabled()) {
-      cancelDrawing(map);
+  setUserToggle(enabled: boolean, map: MapLibreMap | null): void {
+    this.userToggleEnabled = enabled;
+    if (!this.isEnabled()) {
+      this.cancelDrawing(map);
     }
   }
 
@@ -138,10 +127,10 @@ export function createDrawingController(
    * @param isDown True when the shift key is pressed.
    * @param map Map for clearing drawing overlays.
    */
-  function setShiftDown(isDown: boolean, map: MapLibreMap | null): void {
-    shiftEnabled = isDown;
-    if (!isEnabled()) {
-      cancelDrawing(map);
+  setShiftDown(isDown: boolean, map: MapLibreMap | null): void {
+    this.shiftEnabled = isDown;
+    if (!this.isEnabled()) {
+      this.cancelDrawing(map);
     }
   }
 
@@ -150,11 +139,11 @@ export function createDrawingController(
    * @param map Map instance.
    * @param event Mouse event used to seed the polyline.
    */
-  function startFreehand(map: MapLibreMap, event: MapMouseEvent): void {
-    drawState = "freehand";
-    drawPoints = [[event.lngLat.lng, event.lngLat.lat]];
-    options.onDrawingActivated?.();
-    updateSources(map);
+  private startFreehand(map: MapLibreMap, event: MapMouseEvent): void {
+    this.drawState = "freehand";
+    this.drawPoints = [[event.lngLat.lng, event.lngLat.lat]];
+    this.options.onDrawingActivated?.();
+    this.updateSources(map);
   }
 
   /**
@@ -162,17 +151,17 @@ export function createDrawingController(
    * @param map Map instance.
    * @param event Mouse move event containing the new coordinate.
    */
-  function updateFreehand(map: MapLibreMap, event: MapMouseEvent): void {
-    if (drawState !== "freehand") {
+  private updateFreehand(map: MapLibreMap, event: MapMouseEvent): void {
+    if (this.drawState !== "freehand") {
       return;
     }
 
     const latestPoint: Coordinate = [event.lngLat.lng, event.lngLat.lat];
-    const previousPoint = drawPoints[drawPoints.length - 1];
+    const previousPoint = this.drawPoints[this.drawPoints.length - 1];
     if (!previousPoint || latestPoint[0] !== previousPoint[0] || latestPoint[1] !== previousPoint[1]) {
-      drawPoints.push(latestPoint);
-      updateSources(map);
-      options.onLineChange([...drawPoints], false);
+      this.drawPoints.push(latestPoint);
+      this.updateSources(map);
+      this.options.onLineChange([...this.drawPoints], false);
     }
   }
 
@@ -180,11 +169,11 @@ export function createDrawingController(
    * Finalise a freehand stroke and trigger the plot update.
    * @param map Map instance.
    */
-  function finishFreehand(map: MapLibreMap): void {
-    if (drawState === "freehand" && drawPoints.length > 1) {
-      options.onLineChange([...drawPoints], true);
+  private finishFreehand(map: MapLibreMap): void {
+    if (this.drawState === "freehand" && this.drawPoints.length > 1) {
+      this.options.onLineChange([...this.drawPoints], true);
     }
-    cancelDrawing(map);
+    this.cancelDrawing(map);
   }
 
   /**
@@ -192,12 +181,12 @@ export function createDrawingController(
    * @param map Map instance.
    * @param event Mouse event containing the first coordinate.
    */
-  function startStraightLine(map: MapLibreMap, event: MapMouseEvent): void {
-    drawState = "awaiting-second-click";
+  private startStraightLine(map: MapLibreMap, event: MapMouseEvent): void {
+    this.drawState = "awaiting-second-click";
     const point: Coordinate = [event.lngLat.lng, event.lngLat.lat];
-    drawPoints = [point, point];
-    options.onDrawingActivated?.();
-    updateSources(map);
+    this.drawPoints = [point, point];
+    this.options.onDrawingActivated?.();
+    this.updateSources(map);
   }
 
   /**
@@ -205,14 +194,14 @@ export function createDrawingController(
    * @param map Map instance.
    * @param event Mouse event containing the latest coordinate.
    */
-  function updateStraightLine(map: MapLibreMap, event: MapMouseEvent): void {
-    if (drawState !== "awaiting-second-click") {
+  private updateStraightLine(map: MapLibreMap, event: MapMouseEvent): void {
+    if (this.drawState !== "awaiting-second-click") {
       return;
     }
-    drawPoints[drawPoints.length - 1] = [event.lngLat.lng, event.lngLat.lat];
-    drawPoints = interpolatePoints(drawPoints);
-    updateSources(map);
-    options.onLineChange([...drawPoints], false);
+    this.drawPoints[this.drawPoints.length - 1] = [event.lngLat.lng, event.lngLat.lat];
+    this.drawPoints = interpolatePoints(this.drawPoints);
+    this.updateSources(map);
+    this.options.onLineChange([...this.drawPoints], false);
   }
 
   /**
@@ -220,25 +209,25 @@ export function createDrawingController(
    * @param map Map instance.
    * @param event Mouse event containing the end coordinate.
    */
-  function finishStraightLine(map: MapLibreMap, event: MapMouseEvent): void {
-    if (drawState !== "awaiting-second-click") {
+  private finishStraightLine(map: MapLibreMap, event: MapMouseEvent): void {
+    if (this.drawState !== "awaiting-second-click") {
       return;
     }
-    drawPoints[drawPoints.length - 1] = [event.lngLat.lng, event.lngLat.lat];
-    drawPoints = interpolatePoints(drawPoints);
-    updateSources(map);
-    options.onLineChange([...drawPoints], true);
-    cancelDrawing(map);
+    this.drawPoints[this.drawPoints.length - 1] = [event.lngLat.lng, event.lngLat.lat];
+    this.drawPoints = interpolatePoints(this.drawPoints);
+    this.updateSources(map);
+    this.options.onLineChange([...this.drawPoints], true);
+    this.cancelDrawing(map);
   }
 
   /**
    * Reset controller state and clear the drawn polyline overlays.
    * @param map Map instance, when available.
    */
-  function cancelDrawing(map: MapLibreMap | null): void {
-    drawState = "idle";
+  cancelDrawing(map: MapLibreMap | null): void {
+    this.drawState = "idle";
     if (map) {
-      updateSources(map);
+      this.updateSources(map);
     }
   }
 
@@ -247,26 +236,17 @@ export function createDrawingController(
    * @param map Map instance.
    * @param coordinates Points to draw.
    */
-  function updateSources(map: MapLibreMap): void {
-    options.updateLineSources(map, drawPoints);
+  private updateSources(map: MapLibreMap): void {
+    this.options.updateLineSources(map, this.drawPoints);
   }
 
   /**
    * Retrieve a copy of the current drawn coordinates.
    * @returns Cloned coordinate array.
    */
-  function getPoints(): Coordinate[] {
-    return [...drawPoints];
+  getPoints(): Coordinate[] {
+    return [...this.drawPoints];
   }
-
-  return {
-    handleMouseDown,
-    handleMouseMove,
-    setUserToggle,
-    setShiftDown,
-    cancelDrawing,
-    getPoints,
-  };
 }
 
 /**

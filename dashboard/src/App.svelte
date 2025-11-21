@@ -16,7 +16,7 @@
   import { HorizontalPaneController } from "./lib/layout/horizontalPane";
   import { ElevationPlotManager } from "./lib/elevation/elevationPlots";
   import { createLineMeasurementController } from "./lib/elevation/lineMeasurement";
-  import { createDrawingController } from "./lib/map/drawingController";
+  import { DrawingController } from "./lib/map/drawingController";
   import { updateDrawSources, highlightDrawPoint } from "./lib/map/drawLayers";
   import {
     setBaseLayer,
@@ -74,7 +74,7 @@
 
   let rightPaneWidth = paneController.getRightWidth();
 
-  const drawingController = createDrawingController({
+  const drawingController = new DrawingController({
     onLineChange: (coordinates, isFinal) => {
       lineMeasurementController?.updateLine(coordinates, isFinal);
     },
