@@ -13,7 +13,7 @@
   import SearchBox from "./lib/SearchBox.svelte";
   import mapStyle from "./map-style.json";
 
-  import { createHorizontalPaneController } from "./lib/layout/horizontalPane";
+  import { HorizontalPaneController } from "./lib/layout/horizontalPane";
   import { ElevationPlotManager } from "./lib/elevation/elevationPlots";
   import { createLineMeasurementController } from "./lib/elevation/lineMeasurement";
   import { createDrawingController } from "./lib/map/drawingController";
@@ -68,7 +68,7 @@
     elevationPlotManager?.resize();
   }
 
-  const paneController = createHorizontalPaneController({
+  const paneController = new HorizontalPaneController({
     onWidthChange: handleRightPaneWidthChange,
   });
 
