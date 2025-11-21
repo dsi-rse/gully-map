@@ -118,10 +118,41 @@
   let mapMouseDownHandler: ((event: maplibregl.MapMouseEvent) => void) | null = null;
   let mapMouseMoveHandler: ((event: maplibregl.MapMouseEvent) => void) | null = null;
 
-  let windowPointerMoveHandler: ((event: PointerEvent) => void) | null = null;
-  let windowPointerUpHandler: ((event: PointerEvent) => void) | null = null;
-  let windowPointerCancelHandler: ((event: PointerEvent) => void) | null = null;
-  let windowBlurHandler: (() => void) | null = null;
+  function handleWindowPointerMove(event: PointerEvent): void {
+    if (activeDividerPointerId === null || event.pointerId !== activeDividerPointerId) {
+      return;
+    }
+    paneController.handleDrag(event);
+  }
+
+  function handleWindowPointerUp(event: PointerEvent): void {
+    if (activeDividerPointerId === null || event.pointerId !== activeDividerPointerId) {
+      return;
+    }
+    if (dividerElement?.hasPointerCapture(event.pointerId)) {
+      dividerElement.releasePointerCapture(event.pointerId);
+    }
+    activeDividerPointerId = null;
+    paneController.stopDrag();
+  }
+
+  function handleWindowPointerCancel(event: PointerEvent): void {
+    if (activeDividerPointerId === null || event.pointerId !== activeDividerPointerId) {
+      return;
+    }
+    if (dividerElement?.hasPointerCapture(event.pointerId)) {
+      dividerElement.releasePointerCapture(event.pointerId);
+    }
+    activeDividerPointerId = null;
+    paneController.stopDrag();
+  }
+
+  function handleWindowBlur(): void {
+    if (shiftDown) {
+      shiftDown = false;
+      drawingController.setShiftDown(false, map);
+    }
+  }
 
   let leftPaneWidthCss = "";
   $: leftPaneWidthCss = `calc(100vw - 10px - ${rightPaneWidth}px)`;
@@ -143,40 +174,12 @@
 
     lineMeasurementController = createLineMeasurementController({ plotManager: elevationPlotManager });
 
-    windowPointerMoveHandler = (event: PointerEvent) => {
-      if (activeDividerPointerId === null || event.pointerId !== activeDividerPointerId) {
-        return;
-      }
-      paneController.handleDrag(event);
-    };
-    windowPointerUpHandler = (event: PointerEvent) => {
-      if (activeDividerPointerId === null || event.pointerId !== activeDividerPointerId) {
-        return;
-      }
-      if (dividerElement?.hasPointerCapture(event.pointerId)) {
-        dividerElement.releasePointerCapture(event.pointerId);
-      }
-      activeDividerPointerId = null;
-      paneController.stopDrag();
-    };
-    windowPointerCancelHandler = (event: PointerEvent) => {
-      if (activeDividerPointerId === null || event.pointerId !== activeDividerPointerId) {
-        return;
-      }
-      if (dividerElement?.hasPointerCapture(event.pointerId)) {
-        dividerElement.releasePointerCapture(event.pointerId);
-      }
-      activeDividerPointerId = null;
-      paneController.stopDrag();
-    };
-
-    window.addEventListener("pointermove", windowPointerMoveHandler);
-    window.addEventListener("pointerup", windowPointerUpHandler);
-    window.addEventListener("pointercancel", windowPointerCancelHandler);
+    window.addEventListener("pointermove", handleWindowPointerMove);
+    window.addEventListener("pointerup", handleWindowPointerUp);
+    window.addEventListener("pointercancel", handleWindowPointerCancel);
     window.addEventListener("keydown", handleWindowKeydown);
     window.addEventListener("keyup", handleWindowKeyup);
-    windowBlurHandler = () => handleWindowBlur();
-    window.addEventListener("blur", windowBlurHandler);
+    window.addEventListener("blur", handleWindowBlur);
 
     return () => {
       if (activeDividerPointerId !== null && dividerElement?.hasPointerCapture(activeDividerPointerId)) {
@@ -184,20 +187,12 @@
       }
       activeDividerPointerId = null;
 
-      if (windowPointerMoveHandler) {
-        window.removeEventListener("pointermove", windowPointerMoveHandler);
-      }
-      if (windowPointerUpHandler) {
-        window.removeEventListener("pointerup", windowPointerUpHandler);
-      }
-      if (windowPointerCancelHandler) {
-        window.removeEventListener("pointercancel", windowPointerCancelHandler);
-      }
+      window.removeEventListener("pointermove", handleWindowPointerMove);
+      window.removeEventListener("pointerup", handleWindowPointerUp);
+      window.removeEventListener("pointercancel", handleWindowPointerCancel);
       window.removeEventListener("keydown", handleWindowKeydown);
       window.removeEventListener("keyup", handleWindowKeyup);
-      if (windowBlurHandler) {
-        window.removeEventListener("blur", windowBlurHandler);
-      }
+      window.removeEventListener("blur", handleWindowBlur);
       elevationPlotManager?.destroy();
       if (map && mapMouseDownHandler) {
         map.off("mousedown", mapMouseDownHandler);
@@ -233,12 +228,6 @@
   /**
    * Reset temporary drawing state when the window loses focus.
    */
-  function handleWindowBlur(): void {
-    if (shiftDown) {
-      shiftDown = false;
-      drawingController.setShiftDown(false, map);
-    }
-  }
 
   /**
    * Sync draw-mode checkbox state with the controller.
