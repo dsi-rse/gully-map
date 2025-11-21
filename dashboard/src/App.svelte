@@ -1,961 +1,721 @@
 <script lang="ts">
+  /**
+   * Main dashboard component coordinating map interactions, plotting, and UI state.
+   */
   import { onMount } from "svelte";
   import maplibregl from "maplibre-gl";
+  import type { StyleSpecification } from "maplibre-gl";
   import { MapLibre } from "svelte-maplibre";
-  import { parquetRead } from "hyparquet";
-  import { PMTiles, Protocol } from "pmtiles";
-  import upng from "upng-js";
-  import { getDistance } from "geolib";
+  import { Protocol } from "pmtiles";
   import uPlot from "uplot";
   import "uplot/dist/uPlot.min.css";
 
+  import SearchBox from "./lib/SearchBox.svelte";
   import mapStyle from "./map-style.json";
 
-  window.PMTiles = PMTiles;
-  window.upng = upng;
+  import { HorizontalPaneController } from "./lib/layout/horizontalPane";
+  import { ElevationPlotManager } from "./lib/elevation/elevationPlots";
+  import { createLineMeasurementController } from "./lib/elevation/lineMeasurement";
+  import { DrawingController } from "./lib/map/drawingController";
+  import { updateDrawSources, highlightDrawPoint } from "./lib/map/drawLayers";
+  import {
+    setBaseLayer,
+    setBaseLayerTransparency,
+    setContourVisibility,
+    setLadderLayer,
+    setElevationDifferenceContours,
+    getAvailableHighResLayers,
+    HIGH_RES_LAYERS,
+    type BaseLayerId,
+    type LadderLayerId,
+  } from "./lib/map/layerControls";
 
-  let protocol = new Protocol();
+  const protocol = new Protocol();
   maplibregl.addProtocol("pmtiles", protocol.tile);
 
-  let rightWidth = 0.35 * window.innerWidth;
-  let horizontalPaneDragging = false;
+  type ParcelInfo = {
+    parcel?: string;
+    address?: string;
+    city?: string;
+    type?: string;
+    description?: string;
+  };
 
-  let elevation_plot;
-  let elevation_difference_plot;
+  type MapZoomEvent = { target: maplibregl.Map };
 
-  function elevationPlotWidth() {
-    return document.getElementById("elevation_plot_container")?.clientWidth  ||  300;
+  const INITIAL_ZOOM = 9;
+
+  const mapStyleSpecification = mapStyle as unknown as StyleSpecification;
+
+  let map: maplibregl.Map | null = null;
+
+  let elevationPlotContainer: HTMLDivElement | null = null;
+  let elevationPlotElement: HTMLDivElement | null = null;
+  let elevationDifferenceElement: HTMLDivElement | null = null;
+  let lineTooLongBanner: HTMLDivElement | null = null;
+  let elevationSection: HTMLDivElement | null = null;
+  let dividerElement: HTMLDivElement | null = null;
+
+  let elevationPlotManager: ElevationPlotManager | null = null;
+  let lineMeasurementController: ReturnType<typeof createLineMeasurementController> | null = null;
+
+  /**
+   * React to horizontal pane width updates from the splitter controller.
+   * @param width Current width of the right-hand pane in pixels.
+   */
+  function handleRightPaneWidthChange(width: number): void {
+    rightPaneWidth = width;
+    elevationPlotManager?.resize();
   }
 
-  function elevationPlotHeight() {
-    return elevationPlotWidth() * 2/3;
+  const paneController = new HorizontalPaneController({
+    onWidthChange: handleRightPaneWidthChange,
+  });
+
+  let rightPaneWidth = paneController.getRightWidth();
+
+  const drawingController = new DrawingController({
+    onLineChange: (coordinates, isFinal) => {
+      lineMeasurementController?.updateLine(coordinates, isFinal);
+    },
+    onDrawingActivated: () => {
+      elevationSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+    },
+    updateLineSources: (mapInstance, coordinates) => {
+      updateDrawSources(mapInstance, coordinates);
+    },
+  });
+
+  let highResAvailability = getAvailableHighResLayers(INITIAL_ZOOM);
+  let zoomInMessageVisible = true;
+  let parcelZoomMessageVisible = true;
+
+  let lastClickedParcel: ParcelInfo | null = null;
+  let lastClickedCoordinates: [number, number] | null = null;
+
+  let baseLayer: BaseLayerId = "basic";
+  let baseLayerOpacity = 1;
+  let showBaseLayerContours = true;
+  let hillshadeContoursVisible = false;
+
+  let showParcels = false;
+
+  let ladderLayer: LadderLayerId = "none";
+  let showGullyProbability = false;
+  let showGullyLines = false;
+
+  let showElevationContours = false;
+  let fillElevationContourPolygons = true;
+
+  let userDrawToggle = false;
+  let shiftDown = false;
+  $: drawEnabled = userDrawToggle || shiftDown;
+
+  const googleMapsBaseUrl = "https://www.google.com/maps?q=";
+  let googleMapsLink = "";
+  let formattedCoordinates = "";
+
+  let mapMouseDownHandler: ((event: maplibregl.MapMouseEvent) => void) | null = null;
+  let mapMouseMoveHandler: ((event: maplibregl.MapMouseEvent) => void) | null = null;
+
+  function handleWindowPointerMove(event: PointerEvent): void {
+    if (activeDividerPointerId === null || event.pointerId !== activeDividerPointerId) {
+      return;
+    }
+    paneController.handleDrag(event);
   }
 
-  function startHorizontalPaneDrag(e: MouseEvent) {
-    horizontalPaneDragging = true;
-    document.body.style.cursor = "col-resize";
+  function handleWindowPointerUp(event: PointerEvent): void {
+    if (activeDividerPointerId === null || event.pointerId !== activeDividerPointerId) {
+      return;
+    }
+    if (dividerElement?.hasPointerCapture(event.pointerId)) {
+      dividerElement.releasePointerCapture(event.pointerId);
+    }
+    activeDividerPointerId = null;
+    paneController.stopDrag();
   }
 
-  function stopHorizontalPaneDrag() {
-    horizontalPaneDragging = false;
-    document.body.style.cursor = "";
+  function handleWindowPointerCancel(event: PointerEvent): void {
+    if (activeDividerPointerId === null || event.pointerId !== activeDividerPointerId) {
+      return;
+    }
+    if (dividerElement?.hasPointerCapture(event.pointerId)) {
+      dividerElement.releasePointerCapture(event.pointerId);
+    }
+    activeDividerPointerId = null;
+    paneController.stopDrag();
   }
 
-  function onHorizontalPaneDrag(e: MouseEvent) {
-    if (horizontalPaneDragging) {
-      let min = 200, max = window.innerWidth - 200;
-      let x = Math.min(max, Math.max(min, e.clientX));
-      rightWidth = window.innerWidth - x;
-
-      if (elevation_plot) {
-        elevation_plot.setSize({ width: elevationPlotWidth(), height: elevationPlotHeight() });
-      }
-      if (elevation_difference_plot) {
-        elevation_difference_plot.setSize({ width: elevationPlotWidth(), height: elevationPlotHeight() });
-      }
+  function handleWindowBlur(): void {
+    if (shiftDown) {
+      shiftDown = false;
+      drawingController.setShiftDown(false, map);
     }
   }
 
-  function updatePointOnCurve(index) {
-    if (index  &&  drawPoints  &&  drawPoints.length > index) {
-      if (map) {
-        let source = map.getSource("draw-point");
-        if (source) {
-          source.setData({
-            type: "FeatureCollection",
-            features: [
-              {
-                "type": "Feature",
-                "geometry": {
-                  "type": "Point",
-                  "coordinates": [drawPoints[index][0], drawPoints[index][1]],
-                },
-              },
-            ],
-          });
-        }
-      }
-    }
-  }
+  let leftPaneWidthCss = "";
+  $: leftPaneWidthCss = `calc(100vw - 10px - ${rightPaneWidth}px)`;
+  $: hillshadeContoursVisible = baseLayer === "hillshade_greyscale" && showBaseLayerContours;
 
-  function hideBaselayer(e) {
-    map.setPaintProperty("contrast", "background-opacity", 1 - e.target.value);
-  }
+  let activeDividerPointerId: number | null = null;
 
+  /** Initialise controllers and global listeners when the component mounts. */
   onMount(() => {
-    window.addEventListener("mousemove", onHorizontalPaneDrag);
-    window.addEventListener("mouseup", stopHorizontalPaneDrag);
+    elevationPlotManager = new ElevationPlotManager({
+      container: elevationPlotContainer,
+      elevationPlot: elevationPlotElement,
+      differencePlot: elevationDifferenceElement,
+      warningBanner: lineTooLongBanner,
+      onCursorMove: handlePlotCursorMove,
+      createPlot: (element, config, data) => new uPlot(config, data, element),
+    });
+    elevationPlotManager.initialize();
 
-    document.getElementById("baselayer_slider").addEventListener("input", hideBaselayer);
+    lineMeasurementController = createLineMeasurementController({ plotManager: elevationPlotManager });
 
-    elevation_plot = new uPlot(
-      {
-        width: elevationPlotWidth(),
-        height: elevationPlotHeight(),
-        series: [
-          { label: "distance" },
-          { label: "2013 elevation", stroke: "#ff7f0e" },
-          { label: "2022 elevation", stroke: "#1f77b4" },
-        ],
-        axes: [
-          { label: "distance along curve (meters)", labelFont: "12px Arial", size: 40 },
-          { label: "elevation (meters)", labelFont: "12px Arial", size: 50 },
-        ],
-        scales: { "x": { time: false } },
-        padding: [8, 8, 0, 0],
-        cursor: {
-          show: true,
-        },
-        hooks: {
-          setCursor: [
-            (u) => {
-              updatePointOnCurve(u.cursor.idx);
-            },
-          ],
-        },
-      },
-      [
-        [], [], [],
-      ],
-      document.getElementById("elevation_plot"),
-    );
-    elevation_difference_plot = new uPlot(
-      {
-        width: elevationPlotWidth(),
-        height: elevationPlotHeight(),
-        series: [
-          { label: "distance" },
-          { label: "elevation difference", stroke: "#2ca02c" },
-        ],
-        axes: [
-          { label: "distance along curve (meters)", labelFont: "12px Arial", size: 40 },
-          { label: "2022 minus 2013 (meters)", labelFont: "12px Arial", size: 50 },
-        ],
-        scales: { "x": { time: false } },
-        padding: [8, 8, 0, 0],
-        cursor: {
-          show: true,
-        },
-        hooks: {
-          setCursor: [
-            (u) => {
-              updatePointOnCurve(u.cursor.idx);
-            },
-          ],
-        },
-      },
-      [
-        [], [], [],
-      ],
-      document.getElementById("elevation_difference_plot"),
-    );
+    window.addEventListener("pointermove", handleWindowPointerMove);
+    window.addEventListener("pointerup", handleWindowPointerUp);
+    window.addEventListener("pointercancel", handleWindowPointerCancel);
+    window.addEventListener("keydown", handleWindowKeydown);
+    window.addEventListener("keyup", handleWindowKeyup);
+    window.addEventListener("blur", handleWindowBlur);
 
     return () => {
-      window.removeEventListener("mousemove", onHorizontalPaneDrag);
-      window.removeEventListener("mouseup", stopHorizontalPaneDrag);
+      if (activeDividerPointerId !== null && dividerElement?.hasPointerCapture(activeDividerPointerId)) {
+        dividerElement.releasePointerCapture(activeDividerPointerId);
+      }
+      activeDividerPointerId = null;
+
+      window.removeEventListener("pointermove", handleWindowPointerMove);
+      window.removeEventListener("pointerup", handleWindowPointerUp);
+      window.removeEventListener("pointercancel", handleWindowPointerCancel);
+      window.removeEventListener("keydown", handleWindowKeydown);
+      window.removeEventListener("keyup", handleWindowKeyup);
+      window.removeEventListener("blur", handleWindowBlur);
+      elevationPlotManager?.destroy();
+      if (map && mapMouseDownHandler) {
+        map.off("mousedown", mapMouseDownHandler);
+      }
+      if (map && mapMouseMoveHandler) {
+        map.off("mousemove", mapMouseMoveHandler);
+      }
     };
   });
 
-  let map = null;
-  function handleOnLoad(theMap) {
-    map = theMap;
-
-    map.boxZoom.disable();
-    map.on("mousedown", handleMapMouseDown);
-    map.on("mousemove", handleMapMouseMove);
-  }
-
-  function toggleBaselayer(layer) {
-    if (map != null) {
-      if (layer == "basic") {
-        for (const name of Object.keys(highres_layers)) {
-          map.setLayoutProperty(name, "visibility", "none");
-        }
-        toggleBaselayerContours();
-      }
-      else {
-        for (const name of Object.keys(highres_layers)) {
-          map.setLayoutProperty(name, "visibility", layer == name ? "visible" : "none");
-        }
-        toggleBaselayerContours();
-      }
-    }
-  }
-
-  function toggleBaselayerContours() {
-    if (map != null) {
-      const hillshade_checked = document.getElementById("baselayer_hillshade_greyscale").checked;
-      const contours_checked = document.getElementById("baselayer_hillshade_greyscale_contours").checked;
-      if (hillshade_checked  &&  contours_checked) {
-        map.setLayoutProperty("elevation_contours_outline", "visibility", "visible");
-        map.setLayoutProperty("elevation_contours_50", "visibility", "visible");
-        map.setLayoutProperty("elevation_contours_10", "visibility", "visible");
-        map.setLayoutProperty("elevation_contours_label", "visibility", "visible");
-      }
-      else {
-        map.setLayoutProperty("elevation_contours_outline", "visibility", "none");
-        map.setLayoutProperty("elevation_contours_50", "visibility", "none");
-        map.setLayoutProperty("elevation_contours_10", "visibility", "none");
-        map.setLayoutProperty("elevation_contours_label", "visibility", "none");
-      }
-    }
-  }
-
-  function toggleLadderLayer(layer) {
-    if (map != null) {
-      if (layer == "none") {
-        map.setLayoutProperty("ladder_fuels_4m", "visibility", "none");
-        map.setLayoutProperty("ladder_fuels_8m", "visibility", "none");
-      }
-      else if (layer == "4m") {
-        map.setLayoutProperty("ladder_fuels_4m", "visibility", "visible");
-        map.setLayoutProperty("ladder_fuels_8m", "visibility", "none");
-      }
-      else if (layer == "8m") {
-        map.setLayoutProperty("ladder_fuels_4m", "visibility", "none");
-        map.setLayoutProperty("ladder_fuels_8m", "visibility", "visible");
-      }
-    }
-  }
-
-  function toggleElevationContours() {
-    if (map) {
-      let yes_contours = document.getElementById("elevation_difference_contours").checked;
-      let yes_fill = document.getElementById("elevation_difference_contours_fill").checked;
-      map.setLayoutProperty("elevation_difference_contour_minus_fill", "visibility", yes_contours && yes_fill ? "visible" : "none");
-      map.setLayoutProperty("elevation_difference_contour_plus_fill", "visibility", yes_contours && yes_fill ? "visible" : "none");
-      map.setLayoutProperty("elevation_difference_contour_minus", "visibility", yes_contours ? "visible" : "none");
-      map.setLayoutProperty("elevation_difference_contour_plus", "visibility", yes_contours ? "visible" : "none");
-    }
-  }
-
-  // fetch("https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/gully-detection-pass3-graph.parquet").then(async response => {
-  //   if (!response.ok) {
-  //     return;
-  //   }
-  //   let parquetFile = await response.arrayBuffer();
-
-  //   new Promise((onComplete) => parquetRead({
-  //     file: parquetFile,
-  //     columns: ["paths_lon", "paths_lat"],
-  //     rowStart: 0,
-  //     rowEnd: 139,  // number of watersheds in Sonoma County
-  //     onComplete,
-  //   })).then(data => {
-  //     console.log(data);
-  //   });
-  // });
-
-  let checkboxUserEnabled = false;
-  let shiftDown = false;
-
-  $: drawToggleChecked = checkboxUserEnabled  ||  shiftDown;
-
-  function isDrawEnabled() {
-    return checkboxUserEnabled  ||  shiftDown;
-  }
-
-  // drawing state
-  let drawState = "idle";  // "idle" | "freehand" | "awaiting-second-click"
-  let drawPoints = [];
-
-  function handleMapMouseDown(e) {
-    if (!isDrawEnabled()  ||  e.originalEvent.button !== 0  ||  map === null) {
-      return;
-    }
-
-    if (drawState === "awaiting-second-click") {
-      // second click: finish straight line
-      finishStraightLine(e);
-      return;
-    }
-
-    // not currently drawing: a new drawing session
-    let moved = false;
-    let first = true;
-
-    function moveListener(e2) {
-      if (!first  &&  drawState === "idle") {
-        map.off("mousemove", moveListener);
-        map.off("mouseup", upListener);
-        map.dragPan.enable();
-        return;
-      }
-      first = false;
-
-      moved = true;
-      if (drawState !== "freehand") {
-        startFreehand(e);
-      }
-      updateFreehand(e2);
-    }
-
-    function upListener(e2) {
-      first = false;
-
-      map.off("mousemove", moveListener);
-      map.off("mouseup", upListener);
-      map.dragPan.enable();
-
-      if (drawState === "freehand") {
-        finishFreehand();
-      }
-      else if (!moved) {
-        // this was a click, not drag: enter straight line mode and wait
-        startStraightLine(e2);
-      }
-      else {
-        cancelDrawing(); // defensive (shouldn't reach here)
-      }
-    }
-
-    map.dragPan.disable();
-    map.on("mousemove", moveListener);
-    map.on("mouseup", upListener);
-  }
-
-  function startFreehand(e) {
-    drawState = "freehand";
-    drawPoints = [[e.lngLat.lng, e.lngLat.lat]];
-    updateDrawLine();
-
-    document.getElementById("elevation_along_line").scrollIntoView(
-      { behavior: "smooth", block: "start" }
-    );
-  }
-
-  function updateFreehand(e) {
-    if (drawState !== "freehand") {
-      return;
-    }
-
-    const here = [e.lngLat.lng, e.lngLat.lat];
-    const last = drawPoints[drawPoints.length - 1];
-    if (last[0] !== here[0] || last[1] !== here[1]) {
-      drawPoints.push(here);
-      updateDrawLine();
-      updatePlot(drawPoints, false);
-    }
-  }
-
-  function finishFreehand() {
-    if (drawState === "freehand" && drawPoints.length > 1) {
-      updatePlot(drawPoints, true);
-    }
-    cancelDrawing();
-  }
-
-  function startStraightLine(e) {
-    drawState = "awaiting-second-click";
-    const pt = [e.lngLat.lng, e.lngLat.lat];
-    drawPoints = [pt, pt];
-    updateDrawLine();
-
-    document.getElementById("elevation_along_line").scrollIntoView(
-      { behavior: "smooth", block: "start" }
-    );
-  }
-
-  function interpolatePoints(coords) {
-    // interpolate 100 intermediate points
-    return Array.from({ length: 100 }, (_, i) => {
-      const t = i / 99;
-      return [
-        coords[0][0] * (1 - t) + coords[coords.length - 1][0] * t,
-        coords[0][1] * (1 - t) + coords[coords.length - 1][1] * t,
-      ];
-    });
-  }
-
-  function updateStraightLine(e) {
-    if (drawState !== "awaiting-second-click") {
-      return;
-    }
-    drawPoints[drawPoints.length - 1] = [e.lngLat.lng, e.lngLat.lat];
-    drawPoints.splice(0, drawPoints.length, ...interpolatePoints(drawPoints));
-    updateDrawLine();
-    updatePlot(drawPoints, false);
-  }
-
-  function finishStraightLine(e) {
-    if (drawState !== "awaiting-second-click") {
-      return;
-    }
-    drawPoints[drawPoints.length - 1] = [e.lngLat.lng, e.lngLat.lat];
-    drawPoints.splice(0, drawPoints.length, ...interpolatePoints(drawPoints));
-    updatePlot(drawPoints, true);
-    cancelDrawing();
-  }
-
-  function cancelDrawing() {
-    drawState = "idle";
-  }
-
-  function handleMapMouseMove(e) {
-    let did_something = false;
-    if (drawState === "awaiting-second-click") {
-      did_something = true;
-      updateStraightLine(e);
-    }
-  }
-
-  function handleDrawToggleChange(e) {
-    checkboxUserEnabled = e.target.checked;
-    if (!isDrawEnabled()  &&  drawState !== "idle") {
-      cancelDrawing();
-    }
-  }
-
-  function handleWindowKeydown(e) {
-    if (e.key === "Shift"  &&  !shiftDown) {
+  /**
+   * Enable drawing while the shift key is pressed.
+   * @param event Keyboard event dispatched on window.
+   */
+  function handleWindowKeydown(event: KeyboardEvent): void {
+    if (event.key === "Shift" && !shiftDown) {
       shiftDown = true;
+      drawingController.setShiftDown(true, map);
     }
   }
 
-  function handleWindowKeyup(e) {
-    if (e.key === "Shift"  &&  shiftDown) {
+  /**
+   * Disable temporary drawing once the shift key is released.
+   * @param event Keyboard event dispatched on window.
+   */
+  function handleWindowKeyup(event: KeyboardEvent): void {
+    if (event.key === "Shift" && shiftDown) {
       shiftDown = false;
-      cancelDrawing();
+      drawingController.setShiftDown(false, map);
     }
   }
 
-  function onDrawToggleChange(e) {
-    checkboxUserEnabled = e.target.checked;
-    if (!isDrawEnabled()  &&  drawState !== "idle") {
-      cancelDrawing();
-    }
+  /**
+   * Reset temporary drawing state when the window loses focus.
+   */
+
+  /**
+   * Sync draw-mode checkbox state with the controller.
+   * @param event Change event from the draw toggle checkbox.
+   */
+  function handleDrawToggleChange(event: Event): void {
+    const target = event.currentTarget as HTMLInputElement;
+    userDrawToggle = target.checked;
+    drawingController.setUserToggle(userDrawToggle, map);
   }
 
-  function updateDrawLine() {
-    if (map) {
-      const source1 = map.getSource("draw-line");
-      if (source1) {
-        source1.setData({
-          type: "Feature",
-          geometry: {
-            type: "LineString",
-            coordinates: drawPoints  &&  drawPoints.length >= 2 ? drawPoints : [],
-          },
-        });
-      }
+  /**
+   * Initialise MapLibre specific listeners and layer state once the map loads.
+   * @param loadedMap MapLibre instance provided by the component.
+   */
+  function handleMapLoad(loadedMap: maplibregl.Map): void {
+    map = loadedMap;
+    map.boxZoom.disable();
 
-      const source2 = map.getSource("draw-point");
-      if (source2) {
-        source2.setData({
-          type: "FeatureCollection",
-          features: [],
-        });
-      }
+    highResAvailability = getAvailableHighResLayers(map.getZoom());
+    if (baseLayer !== "basic" && !highResAvailability[baseLayer]) {
+      baseLayer = "basic";
     }
+    parcelZoomMessageVisible = map.getZoom() < 14;
+
+    mapMouseDownHandler = (event) => drawingController.handleMouseDown(map!, event);
+    mapMouseMoveHandler = (event) => drawingController.handleMouseMove(map!, event);
+
+    map.on("mousedown", mapMouseDownHandler);
+    map.on("mousemove", mapMouseMoveHandler);
+
+    applyCurrentLayerState();
   }
 
-  const TILE_SIZE = 256;
-  const TILE_Z = 17
-  const elevation2013 = new PMTiles("https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/elevation-2013.pmtiles");
-  const elevation2022 = new PMTiles("https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/elevation-2022.pmtiles");
-
-  const TILE_CACHE_SIZE = 100;  // number of tiles to keep in memory
-  let tileCache = {};
-  let tileCacheOrder = [];  // first is oldest, last is newest
-
-  function getTile(tile_x, tile_y) {
-    const key = `${tile_x}:${tile_y}`;
-
-    if (tileCache.hasOwnProperty(key)) {
-      // "touch" this tile, moving it to the top of the cache, and return it
-      const index = tileCacheOrder.indexOf(key);
-      if (index < tileCacheOrder.length - 1) {
-        tileCacheOrder.splice(index, 1);
-        tileCacheOrder.push(key);
-      }
-      return tileCache[key];
+  function handleFlyTo(item: maplibregl.FlyToOptions) {
+    if (!map) {
+      return;
     }
-    else {
-      // actually download the tile
-      const tile = downloadTile(tile_x, tile_y);
 
-      // add the tile to the top of the cache, possibly evicting the bottom
-      tileCache[key] = tile;
-      tileCacheOrder.push(key);
-      if (tileCacheOrder.length > TILE_CACHE_SIZE) {
-        delete tileCache[tileCacheOrder[0]];
-        tileCacheOrder.shift();
-      }
-
-      return tile;
-    }
+    map.flyTo(item);
   }
 
-  function downloadTile(tile_x, tile_y) {
-    function toView(response) {
-      if (response) {
-        const img = upng.decode(response.data);
-        const rgba = upng.toRGBA8(img)[0];  // first and only frame
-        return new DataView(rgba, 0, rgba.length);
-      }
-      else {
-        return null;
-      }
+  /** Apply the current base layer and overlay selections to the map instance. */
+  function applyCurrentLayerState(): void {
+    if (!map) {
+      return;
     }
 
-    function getValue(view, x, y) {
-      if (view  &&  0 <= x  &&  x < TILE_SIZE  &&  0 <= y  &&  y < TILE_SIZE) {
-        const index = y * TILE_SIZE + x;
-        const value = view.getFloat32(4 * index, true);
-        return value < 3e38 ? value : null;
-      }
-      else {
-        return null;
-      }
+    setBaseLayer(map, baseLayer);
+    setBaseLayerTransparency(map, baseLayerOpacity);
+    setContourVisibility(map, hillshadeContoursVisible);
+    setLadderLayer(map, ladderLayer);
+    setElevationDifferenceContours(map, {
+      showContours: showElevationContours,
+      showFill: fillElevationContourPolygons,
+    });
+    setLayerVisibility("parcels_outline", showParcels);
+    setLayerVisibility("parcels", showParcels);
+    setLayerVisibility("gully_detection_pass2", showGullyProbability);
+    setLayerVisibility("gully_detection_pass3_outline", showGullyLines);
+    setLayerVisibility("gully_detection_pass3", showGullyLines);
+  }
+
+  /**
+   * Keep layer availability in sync with the current zoom level.
+   * @param event Map zoom event.
+   */
+  function handleMapZoom(event: MapZoomEvent): void {
+    const zoomLevel = event.target.getZoom();
+    highResAvailability = getAvailableHighResLayers(zoomLevel);
+    if (baseLayer !== "basic" && !highResAvailability[baseLayer]) {
+      baseLayer = "basic";
+    }
+    parcelZoomMessageVisible = zoomLevel < 14;
+  }
+
+  /**
+   * Capture and display parcel details and coordinates for the clicked location.
+   * @param event Map click event.
+   */
+  function handleMapClick(event: maplibregl.MapMouseEvent): void {
+    const { lng, lat } = event.lngLat;
+    lastClickedCoordinates = [lng, lat];
+
+    if (!map) {
+      lastClickedParcel = null;
+      return;
     }
 
-    let promise2013 = elevation2013.getZxy(TILE_Z, tile_x, tile_y);
-    let view2013 = null;
-    let errors2013 = [];
-    let retries2013 = 3;
-    let waiting2013 = true;
+    const features = map.queryRenderedFeatures(event.point, {
+      layers: ["parcels-filled"],
+    });
 
-    function handleError2013(error) {
-      errors2013.push(error);
-      if (retries2013 > 0) {
-        retries2013--;
-        promise2013 = elevation2013.getZxy(TILE_Z, tile_x, tile_y);
-        promise2013.then(
-          response => { view2013 = toView(response);  waiting2013 = false; },
-          handleError2013,
-        );
-      }
-      else {
-        waiting2013 = false;
-      }
+    if (!features.length || !features[0].properties) {
+      lastClickedParcel = null;
+      return;
     }
-    promise2013.then(
-      response => { view2013 = toView(response);  waiting2013 = false; },
-      handleError2013,
-    );
 
-    let promise2022 = elevation2022.getZxy(TILE_Z, tile_x, tile_y);
-    let view2022 = null;
-    let errors2022 = [];
-    let retries2022 = 3;
-    let waiting2022 = true;
-
-    function handleError2022(error) {
-      errors2022.push(error);
-      if (retries2022 > 0) {
-        retries2022--;
-        promise2022 = elevation2022.getZxy(TILE_Z, tile_x, tile_y);
-        promise2022.then(
-          response => { view2022 = toView(response);  waiting2022 = false; },
-          handleError2022,
-        );
-      }
-      else {
-        waiting2022 = false;
-      }
-    }
-    promise2022.then(
-      response => { view2022 = toView(response);  waiting2022 = false; },
-      handleError2022,
-    );
-
-    return {
-      tile_x: tile_x,
-      tile_y: tile_y,
-      view2013: () => view2013,
-      view2022: () => view2022,
-      value2013: (x, y) => getValue(view2013, x, y),
-      value2022: (x, y) => getValue(view2022, x, y),
-      errors2013: () => errors2013,
-      errors2022: () => errors2022,
-      retries2013: () => retries2013,
-      retries2022: () => retries2022,
-      waiting2013: () => waiting2013,
-      waiting2022: () => waiting2022,
-      waiting: () => waiting2013  ||  waiting2022,
+    const properties = features[0].properties as ParcelInfo;
+    lastClickedParcel = {
+      parcel: ensureString(properties.parcel),
+      address: ensureString(properties.address),
+      city: ensureString(properties.city),
+      type: ensureString(properties.type),
+      description: ensureString(properties.description),
     };
   }
 
-  function tileIndex(lng, lat) {
-    const tile_x = Math.floor((lng + 180) / 360 * Math.pow(2, TILE_Z));
-    const tile_y = Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, TILE_Z));
-    return [tile_x, tile_y];
+  /**
+   * Normalise empty string values read from feature properties.
+   * @param value Property value from MapLibre.
+   * @returns A trimmed string when present, otherwise undefined.
+   */
+  function ensureString(value: unknown): string | undefined {
+    return typeof value === "string" && value.trim().length > 0 ? value : undefined;
   }
 
-  function pixelIndex(lng, lat) {
-    const scale = TILE_SIZE * Math.pow(2, TILE_Z);
-    const world_x = (lng + 180) / 360;
-    const sinLat = Math.sin(lat * Math.PI / 180);
-    const world_y = 0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI);
-    const pixel_x = Math.round(world_x * scale);
-    const pixel_y = Math.round(world_y * scale);
-    const x = pixel_x % TILE_SIZE;
-    const y = pixel_y % TILE_SIZE;
-    return [x, y];
-  }
-
-  const MAX_TILES_PER_QUERY = 10;
-  const CHECK_TIMEOUT = 100;  // ms
-
-  function updatePlot(coords, last) {
-    const num_tiles = (new Set(coords.map(([lng, lat]) => tileIndex(lng, lat).join(":")))).size;
-
-    if (num_tiles > MAX_TILES_PER_QUERY) {
-      document.getElementById("line-is-too-long").style.display = "block";
+  /**
+   * Highlight the nearest drawn point when users hover the elevation plots.
+   * @param index Index reported by the plot cursor.
+   */
+  function handlePlotCursorMove(index: number | null): void {
+    if (!map) {
       return;
     }
-    document.getElementById("line-is-too-long").style.display = "none";
 
-    let cumulative = 0;
-    let distances = [];
-    let prevPoint = null;
-    for (const [lng, lat] of coords) {
-      const thisPoint = { longitude: lng, latitude: lat };
-      if (prevPoint !== null) {
-        cumulative += getDistance(prevPoint, thisPoint, 0.01);
-      }
-      distances.push(cumulative);
-      prevPoint = thisPoint;
+    if (index === null) {
+      highlightDrawPoint(map, null);
+      return;
     }
 
-    const tiles = coords.map(([lng, lat]) => getTile(...tileIndex(lng, lat)));
-    const pixelIndexes = coords.map(([lng, lat]) => pixelIndex(lng, lat));
-
-    if (last) {
-      async function checkUntilDone() {
-        while (true) {
-          const isWaiting = tiles.some(tile => tile.waiting());
-          const values2013 = tiles.map((tile, i) => tile.value2013(...pixelIndexes[i]));
-          const values2022 = tiles.map((tile, i) => tile.value2022(...pixelIndexes[i]));
-          drawPlot(distances, values2013, values2022);
-
-          if (!isWaiting) {
-            break;
-          }
-          await new Promise(resolve => setTimeout(resolve, CHECK_TIMEOUT));
-        }
-      }
-      checkUntilDone();
-    }
-    else {
-      const values2013 = tiles.map((tile, i) => tile.value2013(...pixelIndexes[i]));
-      const values2022 = tiles.map((tile, i) => tile.value2022(...pixelIndexes[i]));
-      drawPlot(distances, values2013, values2022);
+    const points = drawingController.getPoints();
+    if (index < points.length) {
+      highlightDrawPoint(map, points[index]);
     }
   }
 
-  function drawPlot(distances, values2013, values2022) {
-    function low_high_percentile(data, p) {
-      const sorted = data.filter(Number.isFinite).sort((a, b) => a - b);
-      const low_index = Math.ceil((sorted.length - 1) * p);
-      const high_index = Math.floor((sorted.length - 1) * (1 - p));
-      return [sorted[low_index], sorted[high_index]];
-    }
-
-    if (values2013.every(x => x === null)  &&  values2022.every(x => x === null)) {
-      document.getElementById("elevation_plot").style.visibility = "hidden";
-      document.getElementById("elevation_difference_plot").style.visibility = "hidden";
+  /**
+   * Convenience wrapper to flip layer visibility flags via MapLibre.
+   * @param layerId Layer identifier.
+   * @param visible Desired visibility.
+   */
+  function setLayerVisibility(layerId: string, visible: boolean): void {
+    if (!map) {
       return;
     }
-    document.getElementById("elevation_plot").style.visibility = "visible";
-
-    const [elevation_low, elevation_high] = low_high_percentile(values2013.concat(values2022), 0.05);
-    elevation_plot.setData([distances, values2013, values2022]);
-    elevation_plot.setScale("x", { min: 0, max: distances[distances.length - 1] });
-    elevation_plot.setScale("y", { min: elevation_low - 5, max: elevation_high + 5 });
-
-    const difference = values2022.map(
-      (x, i) => x === null  &&  values2013[i] === null ? null : x - values2013[i]
-    );
-    if (difference.every(x => x === null)) {
-      document.getElementById("elevation_difference_plot").style.visibility = "hidden";
-      return;
-    }
-    document.getElementById("elevation_difference_plot").style.visibility = "visible";
-
-    const [difference_low, difference_high] = low_high_percentile(difference, 0.05);
-    elevation_difference_plot.setData([distances, difference]);
-    elevation_difference_plot.setScale("x", { min: 0, max: distances[distances.length - 1] });
-    elevation_difference_plot.setScale("y", { min: difference_low - 2, max: difference_high + 2 });
+    map.setLayoutProperty(layerId, "visibility", visible ? "visible" : "none");
   }
 
-  // name: minzoom
-  const highres_layers = {
-    "aerial_2013": 14,
-    "aerial_2021": 12,
-    "hillshade_greyscale": 9,
-    "hillshade_color_enhanced": 9,
-  };
+  /**
+   * Format numbers for display as longitude/latitude pairs.
+   * @param value Numeric coordinate value.
+   * @returns A fixed-length coordinate string.
+   */
+  function formatCoordinate(value: number): string {
+    return value.toFixed(6);
+  }
 
+  /**
+   * Begin tracking pointer-based drag events for the divider and capture the pointer.
+   * @param event Pointer event triggered on the divider.
+   */
+  function handleDividerPointerDown(event: PointerEvent): void {
+    event.preventDefault();
+    activeDividerPointerId = event.pointerId;
+    dividerElement?.setPointerCapture(event.pointerId);
+    paneController.startDrag();
+    paneController.handleDrag(event);
+  }
+
+  $: if (map) {
+    setBaseLayer(map, baseLayer);
+  }
+
+  $: if (map) {
+    setBaseLayerTransparency(map, baseLayerOpacity);
+  }
+
+  $: if (map) {
+    setContourVisibility(map, hillshadeContoursVisible);
+  }
+
+  $: if (map) {
+    setLadderLayer(map, ladderLayer);
+  }
+
+  $: if (map) {
+    setElevationDifferenceContours(map, {
+      showContours: showElevationContours,
+      showFill: fillElevationContourPolygons,
+    });
+  }
+
+  $: if (map) {
+    setLayerVisibility("parcels_outline", showParcels);
+    setLayerVisibility("parcels", showParcels);
+  }
+
+  $: if (map) {
+    setLayerVisibility("gully_detection_pass2", showGullyProbability);
+  }
+
+  $: if (map) {
+    setLayerVisibility("gully_detection_pass3_outline", showGullyLines);
+    setLayerVisibility("gully_detection_pass3", showGullyLines);
+  }
+
+  $: if (map) {
+    drawingController.setUserToggle(userDrawToggle, map);
+  }
+
+  $: if (map) {
+    drawingController.setShiftDown(shiftDown, map);
+  }
+
+  $: zoomInMessageVisible = !Object.values(highResAvailability).every(
+    (available) => available,
+  );
+
+  $: googleMapsLink = lastClickedCoordinates
+    ? `${googleMapsBaseUrl}${lastClickedCoordinates[1]},${lastClickedCoordinates[0]}`
+    : "";
+
+  $: formattedCoordinates = lastClickedCoordinates
+    ? `${formatCoordinate(lastClickedCoordinates[0])}, ${formatCoordinate(lastClickedCoordinates[1])}`
+    : "";
 </script>
 
-<svelte:window on:keydown={handleWindowKeydown} on:keyup={handleWindowKeyup} />
-
-<div class="whole-page"> 
-  <div class="left-half" style="width: calc(100vw - 10px - {rightWidth}px);">
+<div class="whole-page">
+  <div class="left-half" style={`width: ${leftPaneWidthCss};`}>
     <MapLibre
       center={[-122.88, 38.46]}
       zoom={9}
       class="map"
       standardControls
-      style={mapStyle}
-      onload={handleOnLoad}
-      onzoom={(e) => {
-          let all_visible = true;
-          for (const [name, minzoom] of Object.entries(highres_layers)) {
-              const checkbox = document.getElementById("baselayer_" + name);
-              const label = document.querySelector('label[for="baselayer_' + name + '"]');
-              if (e.target.getZoom() < minzoom) {
-                  if (checkbox.checked) {
-                      toggleBaselayer("basic");
-                      document.getElementById("baselayer_basic").checked = true;
-                  }
-                  checkbox.disabled = true;
-                  label.classList.add("disabled");
-                  all_visible = false;
-              }
-              else {
-                  checkbox.disabled = false;
-                  label.classList.remove("disabled");
-              }
-          }
-          document.getElementById("zoom_in_message").style.display = all_visible ? "none" : "block";
-          document.getElementById("last_clicked_in_zoom_message").style.display = e.target.getZoom() >= 14 ? "none" : "inline";
-      }}
-      onclick={(e) => {
-        const [lng, lat] = [e.lngLat.lng, e.lngLat.lat];
-        document.getElementById("last_clicked_lng_lat").innerHTML = `${lng}, ${lat}`;
-        document.getElementById("last_clicked_google_maps").style.display = "inline";
-        document.getElementById("last_clicked_google_maps_href").href = `https://www.google.com/maps?q=${lat},${lng}`;
-
-        const features = e.target.queryRenderedFeatures(e.point, { layers: ["parcels-filled"] });
-        if (features.length == 0) {
-            document.getElementById("last_clicked_in").innerHTML = "";
-        }
-        else {
-            const f = features[0].properties;
-            document.getElementById("last_clicked_in").innerHTML = `<b>Parcel ID (APN):</b> ${f.parcel}<br>
-<b>Address:</b> ${f.address}, ${f.city}<br>
-${f.type}; ${f.description}`;
-        }
-      }}
-      />
+      style={mapStyleSpecification}
+      onload={handleMapLoad}
+      onzoom={handleMapZoom}
+      onclick={handleMapClick}
+    />
+    <SearchBox onSelect={handleFlyTo} />
   </div>
-  <div class="divider" on:mousedown={startHorizontalPaneDrag}></div>
-  <div class="right-half" style="width: {rightWidth}px;">
+  <div
+    class="divider"
+    role="separator"
+    aria-orientation="vertical"
+    aria-label="Resize panels"
+    bind:this={dividerElement}
+    on:pointerdown={handleDividerPointerDown}
+  ></div>
+  <div class="right-half" style={`width: ${rightPaneWidth}px;`}>
     <div>
       <div class="group">
-        <h3>Base layer</h3>
+        <h1 style="margin-top: 0px;">Base layer</h1>
         <div>
           <div style="display: flex; width: 100%;">
-            <label for="baselayer_slider" style="white-space: nowrap;">Hidden</label>
-            <input type="range" style="flex: 1;" id="baselayer_slider" min="0" max="1" step="0.1" value="1">
-            <label for="baselayer_slider" style="white-space: nowrap;">Visible</label>
+            <label for="baselayer-slider" style="white-space: nowrap;">Hidden</label>
+            <input
+              id="baselayer-slider"
+              type="range"
+              min="0"
+              max="1"
+              step="0.1"
+              bind:value={baseLayerOpacity}
+              style="flex: 1;"
+            />
+            <label for="baselayer-slider" style="white-space: nowrap;">Visible</label>
           </div>
         </div>
         <div>
-          <label><input type="radio" name="baselayer" id="baselayer_basic" checked on:change={
-              (e) => toggleBaselayer("basic")
-          }> Basic topographic map</label> (<a href="https://github.com/nst-guide/osm-liberty-topo" target="_blank">from here</a>)
+          <label>
+            <input type="radio" name="baselayer" value="basic" bind:group={baseLayer} />
+            Basic street map with topography
+          </label>
+          (<a href="https://github.com/nst-guide/osm-liberty-topo" target="_blank">from here</a>)
         </div>
         <div>
-          <label for="baselayer_aerial_2013" class="disabled"><input type="radio" name="baselayer" id="baselayer_aerial_2013" disabled on:change={
-              (e) => toggleBaselayer("aerial_2013")
-          }> 2013 aerial photography</label>
+          <label
+            for="baselayer-aerial-2013"
+            class:disabled={!highResAvailability.aerial_2013}
+          >
+            <input
+              id="baselayer-aerial-2013"
+              type="radio"
+              name="baselayer"
+              value="aerial_2013"
+              bind:group={baseLayer}
+              disabled={!highResAvailability.aerial_2013}
+            />
+            2013 aerial photography
+          </label>
           (<a href="https://www.arcgis.com/apps/mapviewer/index.html?url=https://socogis.sonomacounty.ca.gov/image/rest/services/Rasters/Ortho_SoCo_SonomaVeg_2013_WM/ImageServer&source=sd" target="_blank">Sonoma GIS</a>,
           <a href="https://www.arcgis.com/home/item.html?id=a5fc12e9c4324663bafde942a7d1e1d3" target="_blank">through Esri</a>)
         </div>
         <div>
-          <label for="baselayer_aerial_2021" class="disabled"><input type="radio" name="baselayer" id="baselayer_aerial_2021" disabled on:change={
-              (e) => toggleBaselayer("aerial_2021")
-          }> 2021 aerial photography</label>
+          <label
+            for="baselayer-aerial-2021"
+            class:disabled={!highResAvailability.aerial_2021}
+          >
+            <input
+              id="baselayer-aerial-2021"
+              type="radio"
+              name="baselayer"
+              value="aerial_2021"
+              bind:group={baseLayer}
+              disabled={!highResAvailability.aerial_2021}
+            />
+            2021 aerial photography
+          </label>
           (<a href="https://gis.sonomacounty.ca.gov/datasets/dc026cbfb9884d51a65dae1846bf76a5/explore?location=38.472153%2C-122.943650%2C10.18" target="_blank">Sonoma GIS</a>,
           <a href="https://www.arcgis.com/home/item.html?id=0c361a688a5a453487021132c878e870" target="_blank">through Esri</a>)
         </div>
         <div>
-          <label for="baselayer_hillshade_greyscale"><input type="radio" name="baselayer" id="baselayer_hillshade_greyscale" on:change={
-              (e) => toggleBaselayer("hillshade_greyscale")
-          }> 2022 hillshade</label>
+          <label class:disabled={!highResAvailability.hillshade_greyscale}>
+            <input
+              type="radio"
+              name="baselayer"
+              value="hillshade_greyscale"
+              bind:group={baseLayer}
+              disabled={!highResAvailability.hillshade_greyscale}
+            />
+            2022 hillshade
+          </label>
           (page 9 of <a href="https://tukmangeospatial.egnyte.com/dl/ADWSBBL7ac" target="_blank">LIDAR derivatives</a>)
         </div>
         <div class="indent">
-          <label><input type="checkbox" id="baselayer_hillshade_greyscale_contours" checked on:change={
-              (e) => toggleBaselayerContours()
-          }> ... with 10 m contours</label>
+          <label>
+            <input type="checkbox" bind:checked={showBaseLayerContours} />
+            ... with 10 m contours
+          </label>
         </div>
         <div>
-          <label for="baselayer_hillshade_color_enhanced"><input type="radio" name="baselayer" id="baselayer_hillshade_color_enhanced" on:change={
-              (e) => toggleBaselayer("hillshade_color_enhanced")
-          }> 2022 color-enhanced hillshade</label>
+          <label class:disabled={!highResAvailability.hillshade_color_enhanced}>
+            <input
+              type="radio"
+              name="baselayer"
+              value="hillshade_color_enhanced"
+              bind:group={baseLayer}
+              disabled={!highResAvailability.hillshade_color_enhanced}
+            />
+            2022 color-enhanced hillshade
+          </label>
           (<a href="https://landscapearchaeology.org/2021/texture-shading/" target="_blank">fractional-Laplacian sharpened</a> overlay)
         </div>
-        <div id="zoom_in_message" class="indent" style="margin-top: 0.5em">
-          (Zoom in to enable missing baselayers.)
+        {#if zoomInMessageVisible}
+          <div class="indent" style="margin-top: 0.5em">
+            (Zoom in to enable missing baselayers.)
+          </div>
+        {/if}
+      </div>
+      <div class="group">
+        <h1>Land ownership</h1>
+        <div>
+          <label>
+            <input type="checkbox" bind:checked={showParcels} />
+            Land ownership boundaries
+          </label>
+          (<a href="https://gis.sonomacounty.ca.gov/maps/4b231e8ffbac47abb9a78296e550ffa1" target="_blank">source</a>)
         </div>
       </div>
       <div class="group">
-        <h3>Land ownership</h3>
-        <div>
-          <label for="layer_parcel"><input type="checkbox" id="layer_parcel" on:change={
-                (e) => {
-                    map.setLayoutProperty("parcels_outline", "visibility", e.target.checked ? "visible" : "none");
-                    map.setLayoutProperty("parcels", "visibility", e.target.checked ? "visible" : "none");
-                }
-            }> Land ownership boundaries</label> (<a href="https://gis.sonomacounty.ca.gov/maps/4b231e8ffbac47abb9a78296e550ffa1" target="_blank">source</a>)
+        <div style="margin-left: 11px;">
+          Last clicked in{#if parcelZoomMessageVisible}<span>&nbsp;(zoom in to enable)</span>{/if}:
+        </div>
+        <div style="min-height: 1em; margin: 0px 5px 5px 5px; padding: 5px; border: 1px solid gray;">
+          {#if lastClickedParcel}
+            {#if lastClickedParcel.parcel}
+              <b>Parcel ID (APN):</b> {lastClickedParcel.parcel}<br>
+            {/if}
+            {#if lastClickedParcel.address}
+              <b>Address:</b> {lastClickedParcel.address}
+              {#if lastClickedParcel.city}, {lastClickedParcel.city}{/if}<br>
+            {/if}
+            {#if lastClickedParcel.type}{lastClickedParcel.type}{/if}
+            {#if lastClickedParcel.type && lastClickedParcel.description}; {/if}
+            {#if lastClickedParcel.description}{lastClickedParcel.description}{/if}
+          {/if}
+        </div>
+        <div style="margin-left: 11px;">
+          Last clicked longitude-latitude{#if lastClickedCoordinates}<span>, and <a href={googleMapsLink} target="_blank">link to Google Maps</a></span>{/if}:
+        </div>
+        <div style="height: 1em; margin: 0px 5px 5px 5px; padding: 5px; border: 1px solid gray; overflow: hidden;">
+          {#if formattedCoordinates}
+            {formattedCoordinates}
+          {/if}
         </div>
       </div>
       <div class="group">
-        <div style="margin-left: 11px;">Last clicked in<span id="last_clicked_in_zoom_message" style="display: inline;">&nbsp;(zoom in to enable)</span>:</div>
-        <div id="last_clicked_in" style="min-height: 1em; margin: 5px; padding: 5px; border: 1px solid gray;"></div>
-      </div>
-      <div class="group">
-        <div style="margin-left: 11px;">Last clicked longitude-latitude<span id="last_clicked_google_maps" style="display: none;">, and <a href="" target="_blank" id="last_clicked_google_maps_href">link to Google Maps</a></span>:</div>
-        <div id="last_clicked_lng_lat" style="height: 1em; margin: 5px; padding: 5px; border: 1px solid gray; overflow: hidden;"></div>
-      </div>
-      <div class="group">
-        <h3>Fire hazard</h3>
+        <h1>Fire hazard</h1>
         <div>
-          <label><input type="radio" name="ladderlayer" id="ladderlayer_none" checked on:change={
-              (e) => toggleLadderLayer("none")
-          }> Hide ladder fuel proxies</label>
+          <label>
+            <input type="radio" name="ladderlayer" value="none" bind:group={ladderLayer} />
+            Hide ladder fuel proxies
+          </label>
         </div>
         <div>
-          <label for="ladderlayer_4m"><input type="radio" name="ladderlayer" id="ladderlayer_4m" on:change={
-              (e) => toggleLadderLayer("4m")
-          }> (material in 1‒4 m) / (material in 0‒4 m)</label>
+          <label>
+            <input type="radio" name="ladderlayer" value="4m" bind:group={ladderLayer} />
+            (material in 1‒4 m) / (material in 0‒4 m)
+          </label>
         </div>
         <div>
-          <label for="ladderlayer_8m"><input type="radio" name="ladderlayer" id="ladderlayer_8m" on:change={
-              (e) => toggleLadderLayer("8m")
-          }> (material in 1‒8 m) / (material in 0‒8 m)</label>
+          <label>
+            <input type="radio" name="ladderlayer" value="8m" bind:group={ladderLayer} />
+            (material in 1‒8 m) / (material in 0‒8 m)
+          </label>
         </div>
         <div class="indent">
-           (See page 9 of <a href="https://tukmangeospatial.egnyte.com/dl/ADWSBBL7ac" target="_blank">LIDAR derivatives</a>)
+          (See page 9 of <a href="https://tukmangeospatial.egnyte.com/dl/ADWSBBL7ac" target="_blank">LIDAR derivatives</a>)
         </div>
       </div>
       <div class="group">
-        <h3>Gullies</h3>
+        <h1>Gullies</h1>
         <div>
-          <label><input type="checkbox" name="gully_detection_pass2" on:change={
-              (e) => {
-                  if (map) {
-                      map.setLayoutProperty("gully_detection_pass2", "visibility", e.target.checked ? "visible" : "none");
-                  }
-              }
-          }> Gully detection probability</label>
+          <label>
+            <input type="checkbox" bind:checked={showGullyProbability} />
+            Gully detection probability
+          </label>
         </div>
         <div>
-          <label><input type="checkbox" name="gully_detection_pass3" on:change={
-              (e) => {
-                  if (map) {
-                      map.setLayoutProperty("gully_detection_pass3_outline", "visibility", e.target.checked ? "visible" : "none");
-                      map.setLayoutProperty("gully_detection_pass3", "visibility", e.target.checked ? "visible" : "none");
-                  }
-              }
-          }> Gully paths as lines</label>
+          <label>
+            <input type="checkbox" bind:checked={showGullyLines} />
+            Gully paths as lines
+          </label>
         </div>
       </div>
       <div class="group">
-        <h3>Erosion</h3>
+        <h1>Erosion</h1>
         <div>
-          <label><input type="checkbox" id="elevation_difference_contours" on:change={() => toggleElevationContours()}> 2013-2022 elevation difference contours</label>
+          <label>
+            <input type="checkbox" bind:checked={showElevationContours} />
+            2013-2022 elevation difference contours
+          </label>
         </div>
         <div class="indent">
-          (1/3 meter spacing, <span style="vertical-align: 0.1em; display: inline-block; width: 1em; height: 1em;">
+          (1/3 meter spacing,
+          <span style="vertical-align: 0.1em; display: inline-block; width: 1em; height: 1em;">
             <svg width="1em" height="1em" viewBox="0 0 24 24" style="display: inline; vertical-align: middle;" xmlns="http://www.w3.org/2000/svg">
               <circle cx="12" cy="12" r="10" stroke="#9d3bff" stroke-width="2" fill="none"/>
               <circle cx="12" cy="12" r="5" stroke="#9d3bff" stroke-width="2" fill="none"/>
             </svg>
-          </span> erosion, <span style="vertical-align: 0.1em; display: inline-block; width: 1em; height: 1em;">
+          </span>
+          erosion,
+          <span style="vertical-align: 0.1em; display: inline-block; width: 1em; height: 1em;">
             <svg width="1em" height="1em" viewBox="0 0 24 24" style="display: inline; vertical-align: middle;" xmlns="http://www.w3.org/2000/svg">
               <circle cx="12" cy="12" r="10" stroke="#ff9100" stroke-width="2" fill="none"/>
               <circle cx="12" cy="12" r="5" stroke="#ff9100" stroke-width="2" fill="none"/>
             </svg>
-          </span> deposition)
+          </span>
+          deposition)
         </div>
         <div class="indent">
-          <label><input type="checkbox" id="elevation_difference_contours_fill" checked on:change={() => toggleElevationContours()}> ...and fill in the polygons</label>
+          <label>
+            <input type="checkbox" bind:checked={fillElevationContourPolygons} />
+            ...and fill in the polygons
+          </label>
         </div>
       </div>
-      <div class="group" id="elevation_along_line">
-        <h3>Elevation along line</h3>
+      <div class="group" bind:this={elevationSection}>
+        <h1>Elevation along line</h1>
         <div>
-          <label for="draw-toggle"><input id="draw-toggle" type="checkbox" bind:checked={drawToggleChecked} on:change={onDrawToggleChange}> Draw line instead of moving map</label>
+          <label for="draw-toggle">
+            <input
+              id="draw-toggle"
+              type="checkbox"
+              checked={drawEnabled}
+              on:change={handleDrawToggleChange}
+            />
+            Draw line instead of moving map
+          </label>
         </div>
         <div class="indent">
-           (holding the <b>shift</b> key temporarily enables this; <b>two clicks</b> for a straight line and <b>drag</b> for a curve)
+          (holding the <b>shift</b> key temporarily enables this; <b>two clicks</b> for a straight line and <b>drag</b> for a curve)
         </div>
       </div>
       <div class="group">
-        <div id="line-is-too-long" style="color: magenta; font-weight: bold; display: none;">Line is too long to measure!</div>
+        <div
+          bind:this={lineTooLongBanner}
+          style="color: magenta; font-weight: bold; display: none;"
+        >
+          Line is too long to measure!
+        </div>
       </div>
-      <div id="elevation_plot_container">
-        <div id="elevation_plot" style="visibility: hidden;"></div>
-        <div id="elevation_difference_plot" style="visibility: hidden;"></div>
+      <div bind:this={elevationPlotContainer}>
+        <div bind:this={elevationPlotElement} style="visibility: hidden;"></div>
+        <div bind:this={elevationDifferenceElement} style="visibility: hidden;"></div>
       </div>
       <div style="height: 100px;"></div>
     </div>
   </div>
 </div>
-
-<style>
-  :global(body) {
-    margin: 0;
-  }
-
-  :global(.whole-page) {
-    display: flex;
-    height: 100vh;
-    width: 100vw;
-    overflow: hidden;
-  }
-
-  :global(.left-half) {
-    min-width: 200px;
-    max-width: calc(100vw - 200px - 10px);
-    height: 100vh;
-    position: relative;
-    transition: none;
-  }
-
-  :global(.divider) {
-    width: 10px;
-    background: #eee;
-    cursor: col-resize;
-    height: 100vh;
-    z-index: 5;
-    position: relative;
-    user-select: none;
-    transition: background 0.2s;
-  }
-  :global(.divider):hover,
-  :global(.divider):active {
-    background: #ccc;
-  }
-
-  :global(.right-half) {
-    min-width: 200px;
-    height: 100vh;
-    overflow-y: auto;
-    padding: 1rem;
-    box-sizing: border-box;
-    transition: none;
-  }
-
-  :global(label.disabled) {
-    color: #aaa;
-  }
-
-  :global(.group) {
-    margin-bottom: 1em;
-  }
-
-  :global(.indent) {
-    margin-left: 1.5em;
-  }
-
-  :global(.map) {
-    width: 100%;
-    height: 100vh;
-  }
-</style>
