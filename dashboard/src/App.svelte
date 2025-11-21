@@ -257,7 +257,7 @@
     applyCurrentLayerState();
   }
 
-  function handleFlyTo(item) {
+  function handleFlyTo(item: maplibregl.FlyToOptions) {
     if (!map) {
       return;
     }

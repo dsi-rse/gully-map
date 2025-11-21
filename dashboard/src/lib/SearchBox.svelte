@@ -153,7 +153,7 @@
     {#if results.length !== 0}
       <List bind:this={resultsList}>
         {#each results as result (result.name)}
-          <Item tabindex="0" onSMUIAction={() => { selectResult(result); }}>
+          <Item tabindex={0} onSMUIAction={() => { selectResult(result); }}>
             <Text>{result.name}</Text>
           </Item>
         {/each}

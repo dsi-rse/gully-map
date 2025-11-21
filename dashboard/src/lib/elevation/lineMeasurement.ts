@@ -109,10 +109,10 @@ export function createLineMeasurementController(
       return;
     }
 
-    const distinctDistances = [];
-    const distinctTiles = [];
-    const distinctPixelPositions = [];
-    let prevPixelPosition = [null, null];
+    const distinctDistances: number[] = [];
+    const distinctTiles: ElevationTile[] = [];
+    const distinctPixelPositions: Array<[number, number]> = [];
+    let prevPixelPosition: [number | null, number | null] = [null, null];
     pixelPositions.forEach((pixelPosition, index) => {
       if (
         (pixelPosition[0] != prevPixelPosition[0])
