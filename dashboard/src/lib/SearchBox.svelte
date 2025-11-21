@@ -163,36 +163,3 @@
     {/if}
   </Menu>
 </div>
-
-<style>
-:global(.search-box) {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 300px;
-}
-
-:global(.search-box input) {
-  width: 100%;
-  box-sizing: border-box;
-
-  border: 2px solid #808080;
-
-  /* match the style in the Menu/List */
-  font-size: 16px;
-  color: rgba(0, 0, 0, 0.87);
-  background-color: white;
-  padding-top: 8px;
-  padding-bottom: 8px;
-  padding-left: 16px;
-  padding-right: 16px;
-}
-
-:global(.search-results) {
-  /* align with the search box */
-  margin: 1px;
-  margin-top: 2px;
-  background: white;
-}
-
-</style>
