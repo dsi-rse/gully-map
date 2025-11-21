@@ -14,7 +14,7 @@
   import mapStyle from "./map-style.json";
 
   import { createHorizontalPaneController } from "./lib/layout/horizontalPane";
-  import { createElevationPlotManager } from "./lib/elevation/elevationPlots";
+  import { ElevationPlotManager } from "./lib/elevation/elevationPlots";
   import { createLineMeasurementController } from "./lib/elevation/lineMeasurement";
   import { createDrawingController } from "./lib/map/drawingController";
   import { updateDrawSources, highlightDrawPoint } from "./lib/map/drawLayers";
@@ -56,7 +56,7 @@
   let elevationSection: HTMLDivElement | null = null;
   let dividerElement: HTMLDivElement | null = null;
 
-  let elevationPlotManager: ReturnType<typeof createElevationPlotManager> | null = null;
+  let elevationPlotManager: ElevationPlotManager | null = null;
   let lineMeasurementController: ReturnType<typeof createLineMeasurementController> | null = null;
 
   /**
@@ -162,7 +162,7 @@
 
   /** Initialise controllers and global listeners when the component mounts. */
   onMount(() => {
-    elevationPlotManager = createElevationPlotManager({
+    elevationPlotManager = new ElevationPlotManager({
       container: elevationPlotContainer,
       elevationPlot: elevationPlotElement,
       differencePlot: elevationDifferenceElement,

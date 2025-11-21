@@ -10,18 +10,6 @@ export interface ElevationPlotManagerElements {
   warningBanner?: HTMLElement | null;
 }
 
-export interface ElevationPlotManager {
-  initialize: () => void;
-  resize: () => void;
-  update: (
-    distances: number[],
-    values2013: Array<number | null>,
-    values2022: Array<number | null>,
-  ) => void;
-  setLineTooLong: (tooLong: boolean) => void;
-  destroy: () => void;
-}
-
 export interface ElevationPlotManagerOptions extends ElevationPlotManagerElements {
   onCursorMove?: (index: number | null) => void;
   createPlot: (
@@ -40,40 +28,43 @@ const PADDING: [number, number, number, number] = [8, 8, 0, 0];
  * @param options DOM references and callbacks required to drive the plots.
  * @returns A manager exposing lifecycle and update helpers.
  */
-export function createElevationPlotManager(
-  options: ElevationPlotManagerOptions,
-): ElevationPlotManager {
-  let elevationPlot: uPlot | null = null;
-  let differencePlot: uPlot | null = null;
+export class ElevationPlotManager {
+  private elevationPlot: uPlot | null = null;
+  private differencePlot: uPlot | null = null;
+  private readonly options: ElevationPlotManagerOptions;
+
+  constructor(options: ElevationPlotManagerOptions) {
+    this.options = options;
+  }
 
   /** Tear down any instantiated charts to keep uPlot resource usage in check. */
-  function destroy(): void {
-    elevationPlot?.destroy();
-    differencePlot?.destroy();
-    elevationPlot = null;
-    differencePlot = null;
+  destroy(): void {
+    this.elevationPlot?.destroy();
+    this.differencePlot?.destroy();
+    this.elevationPlot = null;
+    this.differencePlot = null;
   }
 
   /**
    * Compute the current chart dimensions based on the container width.
    * @returns The width and height to apply to each plot.
    */
-  function getDimensions(): { width: number; height: number } {
-    const width = options.container?.clientWidth ?? 300;
+  private getDimensions(): { width: number; height: number } {
+    const width = this.options.container?.clientWidth ?? 300;
     const height = Math.round(width * 2 / 3);
     return { width, height };
   }
 
   /** Lazily instantiate the charts once the required DOM mounts exist. */
-  function ensureInitialized(): void {
-    if (!options.elevationPlot || !options.differencePlot) {
+  private ensureInitialized(): void {
+    if (!this.options.elevationPlot || !this.options.differencePlot) {
       return;
     }
 
-    if (!elevationPlot) {
-      const { width, height } = getDimensions();
-      elevationPlot = options.createPlot(
-        options.elevationPlot,
+    if (!this.elevationPlot) {
+      const { width, height } = this.getDimensions();
+      this.elevationPlot = this.options.createPlot(
+        this.options.elevationPlot,
         {
           width,
           height,
@@ -92,7 +83,7 @@ export function createElevationPlotManager(
           hooks: {
             setCursor: [
               (u) => {
-                options.onCursorMove?.(u.cursor.idx ?? null);
+                this.options.onCursorMove?.(u.cursor.idx ?? null);
               },
             ],
           },
@@ -101,10 +92,10 @@ export function createElevationPlotManager(
       );
     }
 
-    if (!differencePlot) {
-      const { width, height } = getDimensions();
-      differencePlot = options.createPlot(
-        options.differencePlot,
+    if (!this.differencePlot) {
+      const { width, height } = this.getDimensions();
+      this.differencePlot = this.options.createPlot(
+        this.options.differencePlot,
         {
           width,
           height,
@@ -122,7 +113,7 @@ export function createElevationPlotManager(
           hooks: {
             setCursor: [
               (u) => {
-                options.onCursorMove?.(u.cursor.idx ?? null);
+                this.options.onCursorMove?.(u.cursor.idx ?? null);
               },
             ],
           },
@@ -133,15 +124,15 @@ export function createElevationPlotManager(
   }
 
   /** Resize plots when the available width changes. */
-  function resize(): void {
-    if (!elevationPlot && !differencePlot) {
+  resize(): void {
+    if (!this.elevationPlot && !this.differencePlot) {
       return;
     }
 
-    const { width, height } = getDimensions();
+    const { width, height } = this.getDimensions();
 
-    elevationPlot?.setSize({ width, height });
-    differencePlot?.setSize({ width, height });
+    this.elevationPlot?.setSize({ width, height });
+    this.differencePlot?.setSize({ width, height });
   }
 
   /**
@@ -150,38 +141,38 @@ export function createElevationPlotManager(
    * @param values2013 Elevation values for the 2013 dataset.
    * @param values2022 Elevation values for the 2022 dataset.
    */
-  function update(
+  update(
     distances: number[],
     values2013: Array<number | null>,
     values2022: Array<number | null>,
   ): void {
-    ensureInitialized();
+    this.ensureInitialized();
 
-    if (!elevationPlot || !options.elevationPlot) {
+    if (!this.elevationPlot || !this.options.elevationPlot) {
       return;
     }
 
     if (!values2013.some(isFiniteNumber) && !values2022.some(isFiniteNumber)) {
-      hideElement(options.elevationPlot);
-      if (differencePlot && options.differencePlot) {
-        hideElement(options.differencePlot);
+      hideElement(this.options.elevationPlot);
+      if (this.differencePlot && this.options.differencePlot) {
+        hideElement(this.options.differencePlot);
       }
       return;
     }
 
-    showElement(options.elevationPlot);
+    showElement(this.options.elevationPlot);
     const [elevationLow, elevationHigh] = percentileRange(
       [...values2013, ...values2022],
       0.05,
     );
-    elevationPlot.setData([distances, values2013, values2022]);
-    elevationPlot.setScale("x", { min: 0, max: distances[distances.length - 1] ?? 0 });
-    elevationPlot.setScale("y", {
+    this.elevationPlot.setData([distances, values2013, values2022]);
+    this.elevationPlot.setScale("x", { min: 0, max: distances[distances.length - 1] ?? 0 });
+    this.elevationPlot.setScale("y", {
       min: elevationLow - ELEVATION_MARGIN,
       max: elevationHigh + ELEVATION_MARGIN,
     });
 
-    if (!differencePlot || !options.differencePlot) {
+    if (!this.differencePlot || !this.options.differencePlot) {
       return;
     }
 
@@ -194,15 +185,15 @@ export function createElevationPlotManager(
     });
 
     if (!difference.some(isFiniteNumber)) {
-      hideElement(options.differencePlot);
+      hideElement(this.options.differencePlot);
       return;
     }
 
-    showElement(options.differencePlot);
+    showElement(this.options.differencePlot);
     const [differenceLow, differenceHigh] = percentileRange(difference, 0.02);
-    differencePlot.setData([distances, difference]);
-    differencePlot.setScale("x", { min: 0, max: distances[distances.length - 1] ?? 0 });
-    differencePlot.setScale("y", {
+    this.differencePlot.setData([distances, difference]);
+    this.differencePlot.setScale("x", { min: 0, max: distances[distances.length - 1] ?? 0 });
+    this.differencePlot.setScale("y", {
       min: differenceLow - DIFFERENCE_MARGIN,
       max: differenceHigh + DIFFERENCE_MARGIN,
     });
@@ -212,26 +203,18 @@ export function createElevationPlotManager(
    * Toggle the warning banner that indicates the drawn line exceeded safe tile limits.
    * @param tooLong Whether the line length should be considered invalid.
    */
-  function setLineTooLong(tooLong: boolean): void {
-    if (!options.warningBanner) {
+  setLineTooLong(tooLong: boolean): void {
+    if (!this.options.warningBanner) {
       return;
     }
-    options.warningBanner.style.display = tooLong ? "block" : "none";
+    this.options.warningBanner.style.display = tooLong ? "block" : "none";
   }
 
   /** Reset and initialise plots in one call, primarily for component mount. */
-  function initialize(): void {
-    destroy();
-    ensureInitialized();
+  initialize(): void {
+    this.destroy();
+    this.ensureInitialized();
   }
-
-  return {
-    initialize,
-    resize,
-    update,
-    setLineTooLong,
-    destroy,
-  };
 }
 
 /**
