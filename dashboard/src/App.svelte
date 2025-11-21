@@ -121,6 +121,7 @@
   let windowPointerMoveHandler: ((event: PointerEvent) => void) | null = null;
   let windowPointerUpHandler: ((event: PointerEvent) => void) | null = null;
   let windowPointerCancelHandler: ((event: PointerEvent) => void) | null = null;
+  let windowBlurHandler: (() => void) | null = null;
 
   let leftPaneWidthCss = "";
   $: leftPaneWidthCss = `calc(100vw - 10px - ${rightPaneWidth}px)`;
@@ -174,6 +175,8 @@
     window.addEventListener("pointercancel", windowPointerCancelHandler);
     window.addEventListener("keydown", handleWindowKeydown);
     window.addEventListener("keyup", handleWindowKeyup);
+    windowBlurHandler = () => handleWindowBlur();
+    window.addEventListener("blur", windowBlurHandler);
 
     return () => {
       if (activeDividerPointerId !== null && dividerElement?.hasPointerCapture(activeDividerPointerId)) {
@@ -192,6 +195,9 @@
       }
       window.removeEventListener("keydown", handleWindowKeydown);
       window.removeEventListener("keyup", handleWindowKeyup);
+      if (windowBlurHandler) {
+        window.removeEventListener("blur", windowBlurHandler);
+      }
       elevationPlotManager?.destroy();
       if (map && mapMouseDownHandler) {
         map.off("mousedown", mapMouseDownHandler);
@@ -219,6 +225,16 @@
    */
   function handleWindowKeyup(event: KeyboardEvent): void {
     if (event.key === "Shift" && shiftDown) {
+      shiftDown = false;
+      drawingController.setShiftDown(false, map);
+    }
+  }
+
+  /**
+   * Reset temporary drawing state when the window loses focus.
+   */
+  function handleWindowBlur(): void {
+    if (shiftDown) {
       shiftDown = false;
       drawingController.setShiftDown(false, map);
     }
