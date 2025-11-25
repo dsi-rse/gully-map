@@ -7,40 +7,40 @@
   },
   "data": {
     "sonoma-county-parcels": {
-      "pmtiles": "https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/sonoma-county-parcels.pmtiles"
+      "pmtiles": "https://gully-map.cdn.uchicago-dsi.org/sonoma-county-parcels.pmtiles"
     },
     "sonoma-county-ladder-fuels-4m": {
-      "pmtiles": "https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/sonoma-county-ladder-fuels-4m.pmtiles"
+      "pmtiles": "https://gully-map.cdn.uchicago-dsi.org/sonoma-county-ladder-fuels-4m.pmtiles"
     },
     "sonoma-county-ladder-fuels-8m": {
-      "pmtiles": "https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/sonoma-county-ladder-fuels-8m.pmtiles"
+      "pmtiles": "https://gully-map.cdn.uchicago-dsi.org/sonoma-county-ladder-fuels-8m.pmtiles"
     },
     "hillshade-2022-greyscale": {
-      "pmtiles": "https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/hillshade-2022-greyscale.pmtiles"
+      "pmtiles": "https://gully-map.cdn.uchicago-dsi.org/hillshade-2022-greyscale.pmtiles"
     },
     "hillshade-2022-color-enhanced": {
-      "pmtiles": "https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/hillshade-2022-color-enhanced.pmtiles"
+      "pmtiles": "https://gully-map.cdn.uchicago-dsi.org/hillshade-2022-color-enhanced.pmtiles"
     },
     "elevation-2022-contours": {
-      "pmtiles": "https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/elevation-2022-contours.pmtiles"
+      "pmtiles": "https://gully-map.cdn.uchicago-dsi.org/elevation-2022-contours.pmtiles"
     },
     "elevation-2022-minus-2013": {
-      "pmtiles": "https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/elevation-2022-minus-2013.pmtiles"
+      "pmtiles": "https://gully-map.cdn.uchicago-dsi.org/elevation-2022-minus-2013.pmtiles"
     },
     "elevation-2022-minus-2013-contours": {
-      "pmtiles": "https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/elevation-2022-minus-2013-contours.pmtiles"
+      "pmtiles": "https://gully-map.cdn.uchicago-dsi.org/elevation-2022-minus-2013-contours.pmtiles"
     },
     "gully-detection-pass2": {
-      "pmtiles": "https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/gully-detection-pass2.pmtiles"
+      "pmtiles": "https://gully-map.cdn.uchicago-dsi.org/gully-detection-pass2.pmtiles"
     },
     "gully-detection-pass3-graph": {
-      "pmtiles": "https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/gully-detection-pass3-graph.pmtiles"
+      "pmtiles": "https://gully-map.cdn.uchicago-dsi.org/gully-detection-pass3-graph.pmtiles"
     },
     "elevation-2013": {
-      "pmtiles": "https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/elevation-2013.pmtiles"
+      "pmtiles": "https://gully-map.cdn.uchicago-dsi.org/elevation-2013.pmtiles"
     },
     "elevation-2022": {
-      "pmtiles": "https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/elevation-2022.pmtiles"
+      "pmtiles": "https://gully-map.cdn.uchicago-dsi.org/elevation-2022.pmtiles"
     }
   }
 }

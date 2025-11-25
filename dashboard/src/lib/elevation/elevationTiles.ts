@@ -16,8 +16,8 @@ const TILE_CACHE_SIZE = 100;
 export const MAX_TILES_PER_QUERY = 10;
 export const TILE_CHECK_DELAY_MS = 100;
 
-const elevation2013 = new PMTiles("https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/elevation-2013.pmtiles");
-const elevation2022 = new PMTiles("https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/elevation-2022.pmtiles");
+const elevation2013 = new PMTiles("https://gully-map.cdn.uchicago-dsi.org/elevation-2013.pmtiles");
+const elevation2022 = new PMTiles("https://gully-map.cdn.uchicago-dsi.org/elevation-2022.pmtiles");
 
 type TileKey = string;
 type TileCache = Map<TileKey, CachedElevationTile>;

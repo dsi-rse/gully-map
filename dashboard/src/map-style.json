@@ -56,7 +56,7 @@
     },
     "hillshade_greyscale": {
       "type": "raster",
-      "tiles": ["pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/hillshade-2022-greyscale.pmtiles/{z}/{x}/{y}"],
+      "tiles": ["pmtiles://https://gully-map.cdn.uchicago-dsi.org/hillshade-2022-greyscale.pmtiles/{z}/{x}/{y}"],
       "attribution": "<a href=\"https://sonomavegmap.org/\" target=\"_blank\">© SonomaVegMap</a> (CC BY-SA)",
       "tileSize": 512,
       "minzoom": 9,
@@ -64,14 +64,14 @@
     },
     "elevation_contours": {
       "type": "vector",
-      "url": "pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/elevation-2022-contours.pmtiles",
+      "url": "pmtiles://https://gully-map.cdn.uchicago-dsi.org/elevation-2022-contours.pmtiles",
       "attribution": "<a href=\"https://sonomavegmap.org/\" target=\"_blank\">© SonomaVegMap</a> (CC BY-SA)",
       "minzoom": 9,
       "maxzoom": 24
     },
     "hillshade_color_enhanced": {
       "type": "raster",
-      "tiles": ["pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/hillshade-2022-color-enhanced.pmtiles/{z}/{x}/{y}"],
+      "tiles": ["pmtiles://https://gully-map.cdn.uchicago-dsi.org/hillshade-2022-color-enhanced.pmtiles/{z}/{x}/{y}"],
       "attribution": "<a href=\"https://landscapearchaeology.org/qgis-terrain-shading/\" target=\"_blank\">© Zoran Čučković</a> (GNU v2)",
       "tileSize": 512,
       "minzoom": 9,
@@ -79,39 +79,39 @@
     },
     "parcels": {
       "type": "vector",
-      "url": "pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/sonoma-county-parcels.pmtiles"
+      "url": "pmtiles://https://gully-map.cdn.uchicago-dsi.org/sonoma-county-parcels.pmtiles"
     },
     "ladder_fuels_4m": {
       "type": "raster",
-      "tiles": ["pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/sonoma-county-ladder-fuels-4m.pmtiles/{z}/{x}/{y}"],
+      "tiles": ["pmtiles://https://gully-map.cdn.uchicago-dsi.org/sonoma-county-ladder-fuels-4m.pmtiles/{z}/{x}/{y}"],
       "attribution": "<a href=\"https://sonomavegmap.org/\" target=\"_blank\">© SonomaVegMap</a> (CC BY-SA)",
       "tileSize": 512,
       "maxzoom": 13
     },
     "ladder_fuels_8m": {
       "type": "raster",
-      "tiles": ["pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/sonoma-county-ladder-fuels-8m.pmtiles/{z}/{x}/{y}"],
+      "tiles": ["pmtiles://https://gully-map.cdn.uchicago-dsi.org/sonoma-county-ladder-fuels-8m.pmtiles/{z}/{x}/{y}"],
       "attribution": "<a href=\"https://sonomavegmap.org/\" target=\"_blank\">© SonomaVegMap</a> (CC BY-SA)",
       "tileSize": 512,
       "maxzoom": 13
     },
     "gully_detection_pass2": {
       "type": "raster",
-      "tiles": ["pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/gully-detection-pass2.pmtiles/{z}/{x}/{y}"],
+      "tiles": ["pmtiles://https://gully-map.cdn.uchicago-dsi.org/gully-detection-pass2.pmtiles/{z}/{x}/{y}"],
       "attribution": "<a href=\"https://datascience.uchicago.edu/\" target=\"_blank\">© U. Chicago DSI</a>",
       "tileSize": 512,
       "maxzoom": 16
     },
     "gully_detection_pass3": {
       "type": "vector",
-      "url": "pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/gully-detection-pass3-graph.pmtiles",
+      "url": "pmtiles://https://gully-map.cdn.uchicago-dsi.org/gully-detection-pass3-graph.pmtiles",
       "attribution": "<a href=\"https://datascience.uchicago.edu/\" target=\"_blank\">© U. Chicago DSI</a>",
       "minzoom": 9,
       "maxzoom": 16
     },
     "elevation_difference_contours": {
       "type": "vector",
-      "url": "pmtiles://https://uchicago-dsi-oaec.s3.us-east-1.amazonaws.com/elevation-2022-minus-2013-contours.pmtiles",
+      "url": "pmtiles://https://gully-map.cdn.uchicago-dsi.org/elevation-2022-minus-2013-contours.pmtiles",
       "attribution": "<a href=\"https://sonomavegmap.org/\" target=\"_blank\">© SonomaVegMap</a> (CC BY-SA)",
       "minzoom": 9,
       "maxzoom": 24
