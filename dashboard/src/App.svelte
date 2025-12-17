@@ -132,6 +132,7 @@
   let mapMouseDownHandler: ((event: maplibregl.MapMouseEvent) => void) | null = null;
   let mapMouseMoveHandler: ((event: maplibregl.MapMouseEvent) => void) | null = null;
   let mapMouseUpHandler: ((event: maplibregl.MapMouseEvent) => void) | null = null;
+  let mapContextMenuHandler: ((event: MouseEvent) => void) | null = null;
 
   function handleWindowPointerMove(event: PointerEvent): void {
     if (activeDividerPointerId === null || event.pointerId !== activeDividerPointerId) {
@@ -225,6 +226,9 @@
       if (map && mapMouseUpHandler) {
         map.off("mouseup", mapMouseUpHandler);
       }
+      if (map && mapContextMenuHandler) {
+        map.getContainer().removeEventListener("contextmenu", mapContextMenuHandler);
+      }
     };
   });
 
@@ -307,10 +311,16 @@
     mapMouseUpHandler = () => {
       paintController.handleMouseUp(map!);
     };
+    mapContextMenuHandler = (event) => {
+      if (event.ctrlKey || event.metaKey || paintEnabled) {
+        event.preventDefault();
+      }
+    };
 
     map.on("mousedown", mapMouseDownHandler);
     map.on("mousemove", mapMouseMoveHandler);
     map.on("mouseup", mapMouseUpHandler);
+    map.getContainer().addEventListener("contextmenu", mapContextMenuHandler);
 
     applyCurrentLayerState();
   }
