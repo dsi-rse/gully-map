@@ -208,12 +208,32 @@ export class ElevationPlotManager {
       return;
     }
     this.options.warningBanner.style.display = tooLong ? "block" : "none";
+    if (tooLong) {
+      if (this.options.elevationPlot) {
+        hideElement(this.options.elevationPlot);
+      }
+      if (this.options.differencePlot) {
+        hideElement(this.options.differencePlot);
+      }
+    }
   }
 
   /** Reset and initialise plots in one call, primarily for component mount. */
   initialize(): void {
     this.destroy();
     this.ensureInitialized();
+  }
+
+  /**
+   * Hide both plots and reset warning state while preserving layout.
+   */
+  hideAll(): void {
+    if (this.options.elevationPlot) {
+      hideElement(this.options.elevationPlot);
+    }
+    if (this.options.differencePlot) {
+      hideElement(this.options.differencePlot);
+    }
   }
 }
 

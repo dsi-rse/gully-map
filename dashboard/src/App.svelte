@@ -100,6 +100,8 @@
     brushRadius: 12,
     onPaintActivated: (mapInstance) => {
       drawingController.clearOverlay(mapInstance);
+      elevationPlotManager?.hideAll();
+      elevationPlotManager?.setLineTooLong(false);
       highlightDrawPoint(mapInstance, null);
       volumeSection?.scrollIntoView({ behavior: "smooth", block: "start" });
     },
