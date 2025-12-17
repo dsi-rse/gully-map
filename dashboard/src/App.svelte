@@ -479,7 +479,7 @@
     on:pointerdown={handleDividerPointerDown}
   ></div>
   <div class="right-half" style={`width: ${rightPaneWidth}px;`}>
-    <div style="text-align: right; margin-bottom: -15px;">
+    <div style="text-align: right; margin-bottom: -5px;">
       <a href="https://oaec.org/" target="_blank"><img src="oaec-logo.png" width="150" style="display: inline-block; margin-right: 15px;"></a>
       <a href="https://datascience.uchicago.edu/" target="_blank"><img src="built-by-dsi.png" width="150" style="display: inline-block;"></a>
     </div>
@@ -688,6 +688,18 @@
             <input type="checkbox" bind:checked={fillElevationContourPolygons} />
             ...and fill in the polygons
           </label>
+        </div>
+      </div>
+      <div class="group">
+        <h1>Volume of erosion</h1>
+        <div>
+          <label for="paint-toggle">
+            <input id="paint-toggle" type="checkbox" />
+            Paint region instead of moving map
+          </label>
+        </div>
+        <div class="indent">
+          (holding the <b>control</b> or <b>command</b> key temporarily enables this paintbrush)
         </div>
       </div>
       <div class="group" bind:this={elevationSection}>
