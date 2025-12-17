@@ -236,12 +236,12 @@ export class PaintController {
     }
 
     const bounds = map.getBounds();
-    const coordinates = [
+    const coordinates: [[number, number], [number, number], [number, number], [number, number]] = [
       [bounds.getWest(), bounds.getNorth()],
       [bounds.getEast(), bounds.getNorth()],
       [bounds.getEast(), bounds.getSouth()],
       [bounds.getWest(), bounds.getSouth()],
-    ] as [number, number][];
+    ];
 
     if (!map.getSource(PAINT_SOURCE_ID)) {
       map.addSource(PAINT_SOURCE_ID, {

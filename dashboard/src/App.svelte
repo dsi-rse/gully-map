@@ -543,8 +543,12 @@
   ></div>
   <div class="right-half" style={`width: ${rightPaneWidth}px;`}>
     <div style="text-align: right; margin-bottom: -5px;">
-      <a href="https://oaec.org/" target="_blank"><img src="oaec-logo.png" width="150" style="display: inline-block; margin-right: 15px;"></a>
-      <a href="https://datascience.uchicago.edu/" target="_blank"><img src="built-by-dsi.png" width="150" style="display: inline-block; vertical-align: top;"></a>
+      <a href="https://oaec.org/" target="_blank" aria-label="Occidental Arts and Ecology Center">
+        <img src="oaec-logo.png" width="150" alt="Occidental Arts and Ecology Center" style="display: inline-block; margin-right: 15px;" />
+      </a>
+      <a href="https://datascience.uchicago.edu/" target="_blank" aria-label="University of Chicago Data Science Institute">
+        <img src="built-by-dsi.png" width="150" alt="University of Chicago Data Science Institute" style="display: inline-block; vertical-align: top;" />
+      </a>
     </div>
     <div>
       <div class="group">
