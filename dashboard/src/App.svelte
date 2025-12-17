@@ -786,6 +786,12 @@
         <div class="indent">
           (holding the <b>control</b> or <b>command</b> key temporarily enables this paintbrush)
         </div>
+        <div>
+          <div id="painted-area" style="width: 4em; height: 1em; margin-top: 5px; padding: 5px; vertical-align: -0.35em; text-align: right; display: inline-block; border: 1px solid gray; overflow: hidden;"></div> m² in painted area
+        </div>
+        <div>
+          <div id="painted-volume" style="width: 4em; height: 1em; margin-top: 5px; padding: 5px; vertical-align: -0.35em; text-align: right; display: inline-block; border: 1px solid gray; overflow: hidden;"></div> m³ volume lost from 2013 to 2022
+        </div>
       </div>
       <div class="group" bind:this={elevationSection}>
         <h1>Elevation along line</h1>
