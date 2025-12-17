@@ -143,7 +143,7 @@
   let showGullyProbability = false;
   let showGullyLines = false;
 
-  let showElevationContours = false;
+  let showElevationContours = true;
   let fillElevationContourPolygons = true;
 
   let userDrawToggle = false;
