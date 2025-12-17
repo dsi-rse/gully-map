@@ -15,7 +15,7 @@ export interface ElevationTile {
 const TILE_SIZE = 256;
 const TILE_ZOOM = 17;
 const TILE_CACHE_SIZE = 100;
-export const MAX_TILES_PER_QUERY = 10;
+export const MAX_TILES_PER_QUERY = 30;
 export const TILE_CHECK_DELAY_MS = 100;
 
 const elevation2013 = new PMTiles("https://gully-map.cdn.uchicago-dsi.org/elevation-2013.pmtiles");

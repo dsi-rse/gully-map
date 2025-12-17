@@ -5,7 +5,7 @@
  */
 import type { CanvasSource, Map as MapLibreMap, MapMouseEvent } from "maplibre-gl";
 import { getPreciseDistance } from "geolib";
-import { getTile, pixelIndex, tileIndex } from "../elevation/elevationTiles";
+import { getTile, pixelIndex, tileIndex, MAX_TILES_PER_QUERY } from "../elevation/elevationTiles";
 
 type Coordinate = [number, number];
 
@@ -18,6 +18,7 @@ export interface PaintControllerOptions {
   onPaintAreaChange?: (areaMeters: number | null) => void;
   onPaintVolumeChange?: (volumeMetersCubed: number | null) => void;
   onPaintVolumePendingChange?: (pending: boolean) => void;
+  onPaintTooLargeChange?: (tooLarge: boolean) => void;
 }
 
 export class PaintController {
@@ -130,6 +131,7 @@ export class PaintController {
     this.options.onPaintAreaChange?.(null);
     this.options.onPaintVolumeChange?.(null);
     this.options.onPaintVolumePendingChange?.(false);
+    this.options.onPaintTooLargeChange?.(false);
     if (map) {
       if (this.moveListener) {
         map.off("movestart", this.moveListener);
@@ -351,6 +353,7 @@ export class PaintController {
     this.options.onPaintAreaChange?.(null);
     this.options.onPaintVolumeChange?.(null);
     this.options.onPaintVolumePendingChange?.(false);
+    this.options.onPaintTooLargeChange?.(false);
   }
 
   /**
@@ -370,6 +373,7 @@ export class PaintController {
   private triggerVolumeComputation(map: MapLibreMap): void {
     const currentToken = ++this.volumeComputationToken;
     this.options.onPaintVolumePendingChange?.(this.paintedPixelCount > 0);
+    this.options.onPaintTooLargeChange?.(false);
     void this.computeVolume(map, currentToken);
   }
 
@@ -416,10 +420,24 @@ export class PaintController {
         const [px, py] = pixelIndex(ll.lng, ll.lat);
         const key = `${tileX}:${tileY}`;
         if (!tiles.has(key)) {
-          tiles.set(key, { tileX, tileY, pixels: [], tile: getTile(tileX, tileY) });
+          tiles.set(key, { tileX, tileY, pixels: [], tile: null as unknown as ReturnType<typeof getTile> });
         }
         tiles.get(key)!.pixels.push([px, py]);
       }
+    }
+
+    if (tiles.size > MAX_TILES_PER_QUERY) {
+      if (token === this.volumeComputationToken) {
+        this.options.onPaintVolumeChange?.(null);
+        this.options.onPaintVolumePendingChange?.(false);
+        this.options.onPaintTooLargeChange?.(true);
+      }
+      return;
+    }
+
+    // Materialize tile fetches only after size check passes.
+    for (const entry of tiles.values()) {
+      entry.tile = getTile(entry.tileX, entry.tileY);
     }
 
     // Wait for tiles to be ready.

@@ -59,9 +59,10 @@
   let dividerElement: HTMLDivElement | null = null;
   let paintedAreaElement: HTMLDivElement | null = null;
   let paintedVolumeElement: HTMLDivElement | null = null;
-  let paintedVolumeElementWarning: HTMLDivElement | null = null;
+  let paintedVolumeElementWarning: HTMLSpanElement | null = null;
   let paintedVolumePending = false;
   let paintedVolumeValue: number | null = null;
+  let areaTooLargeBanner: HTMLDivElement | null = null;
 
   let elevationPlotManager: ElevationPlotManager | null = null;
   let lineMeasurementController: ReturnType<typeof createLineMeasurementController> | null = null;
@@ -112,6 +113,13 @@
     onPaintVolumePendingChange: (pending) => {
       paintedVolumePending = pending;
       setPaintedVolume(paintedVolumeValue, paintedVolumePending);
+    },
+    onPaintTooLargeChange: (tooLarge) => {
+      setAreaTooLarge(tooLarge);
+      if (tooLarge) {
+        paintedVolumeValue = null;
+        setPaintedVolume(paintedVolumeValue, false);
+      }
     },
   });
 
@@ -494,6 +502,17 @@
   }
 
   /**
+   * Toggle the area-too-large banner.
+   * @param tooLarge Whether the painted area spans too many tiles.
+   */
+  function setAreaTooLarge(tooLarge: boolean): void {
+    if (!areaTooLargeBanner) {
+      return;
+    }
+    areaTooLargeBanner.style.display = tooLarge ? "block" : "none";
+  }
+
+  /**
    * Format an area in square meters with appropriate precision.
    * @param areaMeters Area value to format.
    * @returns A string with variable decimal places for small areas.
@@ -856,6 +875,12 @@
             bind:this={paintedVolumeElement}
             style="width: 4em; height: 1em; margin-top: 5px; padding: 5px; vertical-align: -0.35em; text-align: right; display: inline-block; border: 1px solid gray; overflow: hidden;"
           ></div> m³ volume lost from 2013 to 2022 <span bind:this={paintedVolumeElementWarning} style="color: red; display: none;">(downloading...)</span>
+        </div>
+        <div
+          bind:this={areaTooLargeBanner}
+          style="color: magenta; font-weight: bold; margin-top: 16px; display: none;"
+        >
+          Area is too large for measuring volume!
         </div>
       </div>
       <div class="group" bind:this={elevationSection}>
