@@ -55,7 +55,6 @@
   let elevationDifferenceElement: HTMLDivElement | null = null;
   let lineTooLongBanner: HTMLDivElement | null = null;
   let elevationSection: HTMLDivElement | null = null;
-  let volumeSection: HTMLDivElement | null = null;
   let erosionSection: HTMLHeadingElement | null = null;
   let dividerElement: HTMLDivElement | null = null;
   let paintedAreaElement: HTMLDivElement | null = null;
@@ -849,7 +848,7 @@
         </div>
       </div>
       <div class="group">
-        <h1 bind:this={volumeSection}>Volume of erosion</h1>
+        <h1>Volume of erosion</h1>
         <div>
           <label for="paint-toggle" class:disabled={drawEnabled}>
             <input
