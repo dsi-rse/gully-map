@@ -7,6 +7,8 @@ import upng from "upng-js";
 export interface ElevationTile {
   value2013: (x: number, y: number) => number | null;
   value2022: (x: number, y: number) => number | null;
+  simple2013: (x: number, y: number) => number | null;
+  simple2022: (x: number, y: number) => number | null;
   waiting: () => boolean;
 }
 
@@ -185,6 +187,23 @@ function downloadTile(tileX: number, tileY: number): CachedElevationTile {
    * @param y Pixel y coordinate.
    * @returns The elevation scalar or null when unavailable.
    */
+  function simpleValueFromView(view: DataView | null, x: number, y: number): number | null {
+    if (!view) {
+      return null;
+    }
+
+    const index = y * TILE_SIZE + x;
+    const value = view.getFloat32(4 * index, true);
+    return value < 3e38 ? value : null;
+  }
+
+  /**
+   * Read a 3x3 pixel neighborhood median elevation value from the provided data view.
+   * @param view Data buffer for a tile.
+   * @param x Pixel x coordinate.
+   * @param y Pixel y coordinate.
+   * @returns The elevation scalar or null when unavailable.
+   */
   function valueFromView(view: DataView | null, x: number, y: number): number | null {
     if (!view) {
       return null;
@@ -225,6 +244,8 @@ function downloadTile(tileX: number, tileY: number): CachedElevationTile {
   return {
     value2013: (x, y) => valueFromView(view2013, x, y),
     value2022: (x, y) => valueFromView(view2022, x, y),
+    simple2013: (x, y) => simpleValueFromView(view2013, x, y),
+    simple2022: (x, y) => simpleValueFromView(view2022, x, y),
     waiting: () => waiting2013 || waiting2022,
     touch,
   };

@@ -57,6 +57,11 @@
   let elevationSection: HTMLDivElement | null = null;
   let volumeSection: HTMLDivElement | null = null;
   let dividerElement: HTMLDivElement | null = null;
+  let paintedAreaElement: HTMLDivElement | null = null;
+  let paintedVolumeElement: HTMLDivElement | null = null;
+  let paintedVolumeElementWarning: HTMLDivElement | null = null;
+  let paintedVolumePending = false;
+  let paintedVolumeValue: number | null = null;
 
   let elevationPlotManager: ElevationPlotManager | null = null;
   let lineMeasurementController: ReturnType<typeof createLineMeasurementController> | null = null;
@@ -96,6 +101,17 @@
       drawingController.clearOverlay(mapInstance);
       highlightDrawPoint(mapInstance, null);
       volumeSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+    },
+    onPaintAreaChange: (areaMeters) => {
+      setPaintedArea(areaMeters);
+    },
+    onPaintVolumeChange: (volumeMetersCubed) => {
+      paintedVolumeValue = volumeMetersCubed;
+      setPaintedVolume(paintedVolumeValue, paintedVolumePending);
+    },
+    onPaintVolumePendingChange: (pending) => {
+      paintedVolumePending = pending;
+      setPaintedVolume(paintedVolumeValue, paintedVolumePending);
     },
   });
 
@@ -452,6 +468,47 @@
   }
 
   /**
+   * Update the painted area display.
+   * @param areaMeters Area in square meters, or null to clear.
+   */
+  function setPaintedArea(areaMeters: number | null): void {
+    if (!paintedAreaElement) {
+      return;
+    }
+    paintedAreaElement.textContent = areaMeters === null ? "" : formatArea(areaMeters);
+  }
+
+  /**
+   * Update the painted volume display and colour state.
+   * @param volumeMetersCubed Volume value or null to clear.
+   * @param pending Whether tile loads are still in flight.
+   */
+  function setPaintedVolume(volumeMetersCubed: number | null, pending: boolean): void {
+    if (!paintedVolumeElement || !paintedVolumeElementWarning) {
+      return;
+    }
+    paintedVolumeElement.textContent =
+      volumeMetersCubed === null ? "" : (-volumeMetersCubed).toFixed(0).replace("-", "‒");
+    paintedVolumeElement.style.color = pending ? "red" : "black";
+    paintedVolumeElementWarning.style.display = pending ? "inline" : "none";
+  }
+
+  /**
+   * Format an area in square meters with appropriate precision.
+   * @param areaMeters Area value to format.
+   * @returns A string with variable decimal places for small areas.
+   */
+  function formatArea(areaMeters: number): string {
+    if (areaMeters < 1) {
+      return areaMeters.toFixed(2);
+    }
+    if (areaMeters < 10) {
+      return areaMeters.toFixed(1);
+    }
+    return areaMeters.toFixed(0);
+  }
+
+  /**
    * Begin tracking pointer-based drag events for the divider and capture the pointer.
    * @param event Pointer event triggered on the divider.
    */
@@ -787,10 +844,18 @@
           (holding the <b>control</b> or <b>command</b> key temporarily enables this paintbrush)
         </div>
         <div>
-          <div id="painted-area" style="width: 4em; height: 1em; margin-top: 5px; padding: 5px; vertical-align: -0.35em; text-align: right; display: inline-block; border: 1px solid gray; overflow: hidden;"></div> m² in painted area
+          <div
+            id="painted-area"
+            bind:this={paintedAreaElement}
+            style="width: 4em; height: 1em; margin-top: 5px; padding: 5px; vertical-align: -0.35em; text-align: right; display: inline-block; border: 1px solid gray; overflow: hidden;"
+          ></div> m² in painted area
         </div>
         <div>
-          <div id="painted-volume" style="width: 4em; height: 1em; margin-top: 5px; padding: 5px; vertical-align: -0.35em; text-align: right; display: inline-block; border: 1px solid gray; overflow: hidden;"></div> m³ volume lost from 2013 to 2022
+          <div
+            id="painted-volume"
+            bind:this={paintedVolumeElement}
+            style="width: 4em; height: 1em; margin-top: 5px; padding: 5px; vertical-align: -0.35em; text-align: right; display: inline-block; border: 1px solid gray; overflow: hidden;"
+          ></div> m³ volume lost from 2013 to 2022 <span bind:this={paintedVolumeElementWarning} style="color: red; display: none;">(downloading...)</span>
         </div>
       </div>
       <div class="group" bind:this={elevationSection}>
