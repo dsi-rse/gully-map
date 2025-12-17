@@ -17,6 +17,7 @@
   import { ElevationPlotManager } from "./lib/elevation/elevationPlots";
   import { createLineMeasurementController } from "./lib/elevation/lineMeasurement";
   import { DrawingController } from "./lib/map/drawingController";
+  import { PaintController } from "./lib/map/paintController";
   import { updateDrawSources, highlightDrawPoint } from "./lib/map/drawLayers";
   import {
     setBaseLayer,
@@ -54,7 +55,14 @@
   let elevationDifferenceElement: HTMLDivElement | null = null;
   let lineTooLongBanner: HTMLDivElement | null = null;
   let elevationSection: HTMLDivElement | null = null;
+  let erosionSection: HTMLHeadingElement | null = null;
   let dividerElement: HTMLDivElement | null = null;
+  let paintedAreaElement: HTMLDivElement | null = null;
+  let paintedVolumeElement: HTMLDivElement | null = null;
+  let paintedVolumeElementWarning: HTMLSpanElement | null = null;
+  let paintedVolumePending = false;
+  let paintedVolumeValue: number | null = null;
+  let areaTooLargeBanner: HTMLDivElement | null = null;
 
   let elevationPlotManager: ElevationPlotManager | null = null;
   let lineMeasurementController: ReturnType<typeof createLineMeasurementController> | null = null;
@@ -80,9 +88,40 @@
     },
     onDrawingActivated: () => {
       elevationSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (map) {
+        paintController.reset(map);
+      }
     },
     updateLineSources: (mapInstance, coordinates) => {
       updateDrawSources(mapInstance, coordinates);
+    },
+  });
+  const paintController = new PaintController({
+    brushRadius: 12,
+    onPaintActivated: (mapInstance) => {
+      drawingController.clearOverlay(mapInstance);
+      elevationPlotManager?.hideAll();
+      elevationPlotManager?.setLineTooLong(false);
+      highlightDrawPoint(mapInstance, null);
+      erosionSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+    },
+    onPaintAreaChange: (areaMeters) => {
+      setPaintedArea(areaMeters);
+    },
+    onPaintVolumeChange: (volumeMetersCubed) => {
+      paintedVolumeValue = volumeMetersCubed;
+      setPaintedVolume(paintedVolumeValue, paintedVolumePending);
+    },
+    onPaintVolumePendingChange: (pending) => {
+      paintedVolumePending = pending;
+      setPaintedVolume(paintedVolumeValue, paintedVolumePending);
+    },
+    onPaintTooLargeChange: (tooLarge) => {
+      setAreaTooLarge(tooLarge);
+      if (tooLarge) {
+        paintedVolumeValue = null;
+        setPaintedVolume(paintedVolumeValue, false);
+      }
     },
   });
 
@@ -104,12 +143,15 @@
   let showGullyProbability = false;
   let showGullyLines = false;
 
-  let showElevationContours = false;
+  let showElevationContours = true;
   let fillElevationContourPolygons = true;
 
   let userDrawToggle = false;
   let shiftDown = false;
   $: drawEnabled = userDrawToggle || shiftDown;
+  let userPaintToggle = false;
+  let controlOrCommandDown = false;
+  $: paintEnabled = (userPaintToggle || controlOrCommandDown) && !drawEnabled;
 
   const googleMapsBaseUrl = "https://www.google.com/maps?q=";
   let googleMapsLink = "";
@@ -117,6 +159,8 @@
 
   let mapMouseDownHandler: ((event: maplibregl.MapMouseEvent) => void) | null = null;
   let mapMouseMoveHandler: ((event: maplibregl.MapMouseEvent) => void) | null = null;
+  let mapMouseUpHandler: ((event: maplibregl.MapMouseEvent) => void) | null = null;
+  let mapContextMenuHandler: ((event: MouseEvent) => void) | null = null;
 
   function handleWindowPointerMove(event: PointerEvent): void {
     if (activeDividerPointerId === null || event.pointerId !== activeDividerPointerId) {
@@ -151,6 +195,10 @@
     if (shiftDown) {
       shiftDown = false;
       drawingController.setShiftDown(false, map);
+    }
+    if (controlOrCommandDown) {
+      controlOrCommandDown = false;
+      paintController.setModifierEnabled(false, map);
     }
   }
 
@@ -194,11 +242,20 @@
       window.removeEventListener("keyup", handleWindowKeyup);
       window.removeEventListener("blur", handleWindowBlur);
       elevationPlotManager?.destroy();
+      if (map) {
+        paintController.reset(map);
+      }
       if (map && mapMouseDownHandler) {
         map.off("mousedown", mapMouseDownHandler);
       }
       if (map && mapMouseMoveHandler) {
         map.off("mousemove", mapMouseMoveHandler);
+      }
+      if (map && mapMouseUpHandler) {
+        map.off("mouseup", mapMouseUpHandler);
+      }
+      if (map && mapContextMenuHandler) {
+        map.getContainer().removeEventListener("contextmenu", mapContextMenuHandler);
       }
     };
   });
@@ -212,6 +269,10 @@
       shiftDown = true;
       drawingController.setShiftDown(true, map);
     }
+    if ((event.key === "Control" || event.key === "Meta") && !controlOrCommandDown) {
+      controlOrCommandDown = true;
+      paintController.setModifierEnabled(true, map);
+    }
   }
 
   /**
@@ -223,11 +284,11 @@
       shiftDown = false;
       drawingController.setShiftDown(false, map);
     }
+    if ((event.key === "Control" || event.key === "Meta") && controlOrCommandDown) {
+      controlOrCommandDown = false;
+      paintController.setModifierEnabled(false, map);
+    }
   }
-
-  /**
-   * Reset temporary drawing state when the window loses focus.
-   */
 
   /**
    * Sync draw-mode checkbox state with the controller.
@@ -240,12 +301,26 @@
   }
 
   /**
+   * Sync paint-mode checkbox state with the controller.
+   * @param event Change event from the paint toggle checkbox.
+   */
+  function handlePaintToggleChange(event: Event): void {
+    const target = event.currentTarget as HTMLInputElement;
+    userPaintToggle = target.checked;
+    paintController.setUserToggle(userPaintToggle, map);
+  }
+
+  /**
    * Initialise MapLibre specific listeners and layer state once the map loads.
    * @param loadedMap MapLibre instance provided by the component.
    */
   function handleMapLoad(loadedMap: maplibregl.Map): void {
     map = loadedMap;
     map.boxZoom.disable();
+    map.dragRotate.disable();
+    map.touchZoomRotate.disableRotation();
+    map.setPitch(0);
+    map.setBearing(0);
 
     highResAvailability = getAvailableHighResLayers(map.getZoom());
     if (baseLayer !== "basic" && !highResAvailability[baseLayer]) {
@@ -253,11 +328,27 @@
     }
     parcelZoomMessageVisible = map.getZoom() < 14;
 
-    mapMouseDownHandler = (event) => drawingController.handleMouseDown(map!, event);
-    mapMouseMoveHandler = (event) => drawingController.handleMouseMove(map!, event);
+    mapMouseDownHandler = (event) => {
+      drawingController.handleMouseDown(map!, event);
+      paintController.handleMouseDown(map!, event);
+    };
+    mapMouseMoveHandler = (event) => {
+      drawingController.handleMouseMove(map!, event);
+      paintController.handleMouseMove(map!, event);
+    };
+    mapMouseUpHandler = () => {
+      paintController.handleMouseUp(map!);
+    };
+    mapContextMenuHandler = (event) => {
+      if (event.ctrlKey || event.metaKey || paintEnabled) {
+        event.preventDefault();
+      }
+    };
 
     map.on("mousedown", mapMouseDownHandler);
     map.on("mousemove", mapMouseMoveHandler);
+    map.on("mouseup", mapMouseUpHandler);
+    map.getContainer().addEventListener("contextmenu", mapContextMenuHandler);
 
     applyCurrentLayerState();
   }
@@ -387,6 +478,58 @@
   }
 
   /**
+   * Update the painted area display.
+   * @param areaMeters Area in square meters, or null to clear.
+   */
+  function setPaintedArea(areaMeters: number | null): void {
+    if (!paintedAreaElement) {
+      return;
+    }
+    paintedAreaElement.textContent = areaMeters === null ? "" : formatArea(areaMeters);
+  }
+
+  /**
+   * Update the painted volume display and colour state.
+   * @param volumeMetersCubed Volume value or null to clear.
+   * @param pending Whether tile loads are still in flight.
+   */
+  function setPaintedVolume(volumeMetersCubed: number | null, pending: boolean): void {
+    if (!paintedVolumeElement || !paintedVolumeElementWarning) {
+      return;
+    }
+    paintedVolumeElement.textContent =
+      volumeMetersCubed === null ? "" : (-volumeMetersCubed).toFixed(0).replace("-", "‒");
+    paintedVolumeElement.style.color = pending ? "red" : "black";
+    paintedVolumeElementWarning.style.display = pending ? "inline" : "none";
+  }
+
+  /**
+   * Toggle the area-too-large banner.
+   * @param tooLarge Whether the painted area spans too many tiles.
+   */
+  function setAreaTooLarge(tooLarge: boolean): void {
+    if (!areaTooLargeBanner) {
+      return;
+    }
+    areaTooLargeBanner.style.display = tooLarge ? "block" : "none";
+  }
+
+  /**
+   * Format an area in square meters with appropriate precision.
+   * @param areaMeters Area value to format.
+   * @returns A string with variable decimal places for small areas.
+   */
+  function formatArea(areaMeters: number): string {
+    if (areaMeters < 1) {
+      return areaMeters.toFixed(2);
+    }
+    if (areaMeters < 10) {
+      return areaMeters.toFixed(1);
+    }
+    return areaMeters.toFixed(0);
+  }
+
+  /**
    * Begin tracking pointer-based drag events for the divider and capture the pointer.
    * @param event Pointer event triggered on the divider.
    */
@@ -443,6 +586,16 @@
     drawingController.setShiftDown(shiftDown, map);
   }
 
+  $: paintController.setLineDrawingActive(drawEnabled);
+
+  $: if (map) {
+    paintController.setUserToggle(userPaintToggle, map);
+  }
+
+  $: if (map) {
+    paintController.setModifierEnabled(controlOrCommandDown, map);
+  }
+
   $: zoomInMessageVisible = !Object.values(highResAvailability).every(
     (available) => available,
   );
@@ -479,6 +632,14 @@
     on:pointerdown={handleDividerPointerDown}
   ></div>
   <div class="right-half" style={`width: ${rightPaneWidth}px;`}>
+    <div style="text-align: right; margin-bottom: -5px;">
+      <a href="https://oaec.org/" target="_blank" aria-label="Occidental Arts and Ecology Center">
+        <img src="oaec-logo.png" width="150" alt="Occidental Arts and Ecology Center" style="display: inline-block; margin-right: 15px;" />
+      </a>
+      <a href="https://datascience.uchicago.edu/" target="_blank" aria-label="University of Chicago Data Science Institute">
+        <img src="built-by-dsi.png" width="150" alt="University of Chicago Data Science Institute" style="display: inline-block; vertical-align: top;" />
+      </a>
+    </div>
     <div>
       <div class="group">
         <h1 style="margin-top: 0px;">Base layer</h1>
@@ -655,7 +816,7 @@
         </div>
       </div>
       <div class="group">
-        <h1>Erosion</h1>
+        <h1 bind:this={erosionSection}>Erosion</h1>
         <div>
           <label>
             <input type="checkbox" bind:checked={showElevationContours} />
@@ -684,6 +845,44 @@
             <input type="checkbox" bind:checked={fillElevationContourPolygons} />
             ...and fill in the polygons
           </label>
+        </div>
+      </div>
+      <div class="group">
+        <h1>Volume of erosion</h1>
+        <div>
+          <label for="paint-toggle" class:disabled={drawEnabled}>
+            <input
+              id="paint-toggle"
+              type="checkbox"
+              checked={paintEnabled}
+              on:change={handlePaintToggleChange}
+              disabled={drawEnabled}
+            />
+            Paint region instead of moving map
+          </label>
+        </div>
+        <div class="indent">
+          (holding the <b>control</b> or <b>command</b> key temporarily enables this paintbrush)
+        </div>
+        <div>
+          <div
+            id="painted-area"
+            bind:this={paintedAreaElement}
+            style="width: 4em; height: 1em; margin-top: 5px; padding: 5px; vertical-align: -0.35em; text-align: right; display: inline-block; border: 1px solid gray; overflow: hidden;"
+          ></div> m² in painted area
+        </div>
+        <div>
+          <div
+            id="painted-volume"
+            bind:this={paintedVolumeElement}
+            style="width: 4em; height: 1em; margin-top: 5px; padding: 5px; vertical-align: -0.35em; text-align: right; display: inline-block; border: 1px solid gray; overflow: hidden;"
+          ></div> m³ volume lost from 2013 to 2022 <span bind:this={paintedVolumeElementWarning} style="color: red; display: none;">(downloading...)</span>
+        </div>
+        <div
+          bind:this={areaTooLargeBanner}
+          style="color: magenta; font-weight: bold; margin-top: 16px; display: none;"
+        >
+          Area is too large for measuring volume!
         </div>
       </div>
       <div class="group" bind:this={elevationSection}>
