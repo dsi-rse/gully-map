@@ -218,6 +218,9 @@ export class PaintController {
       this.canvas.style.height = `${clientHeight}px`;
       this.canvas.style.pointerEvents = "none";
       this.canvas.style.opacity = "0";
+      this.canvas.addEventListener("contextmenu", (event) => {
+        event.preventDefault();
+      });
       container.appendChild(this.canvas);
     }
 
