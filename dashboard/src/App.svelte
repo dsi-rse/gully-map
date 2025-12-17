@@ -17,6 +17,7 @@
   import { ElevationPlotManager } from "./lib/elevation/elevationPlots";
   import { createLineMeasurementController } from "./lib/elevation/lineMeasurement";
   import { DrawingController } from "./lib/map/drawingController";
+  import { PaintController } from "./lib/map/paintController";
   import { updateDrawSources, highlightDrawPoint } from "./lib/map/drawLayers";
   import {
     setBaseLayer,
@@ -80,9 +81,19 @@
     },
     onDrawingActivated: () => {
       elevationSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (map) {
+        paintController.reset(map);
+      }
     },
     updateLineSources: (mapInstance, coordinates) => {
       updateDrawSources(mapInstance, coordinates);
+    },
+  });
+  const paintController = new PaintController({
+    brushRadius: 12,
+    onPaintActivated: (mapInstance) => {
+      drawingController.clearOverlay(mapInstance);
+      highlightDrawPoint(mapInstance, null);
     },
   });
 
@@ -110,6 +121,9 @@
   let userDrawToggle = false;
   let shiftDown = false;
   $: drawEnabled = userDrawToggle || shiftDown;
+  let userPaintToggle = false;
+  let controlOrCommandDown = false;
+  $: paintEnabled = (userPaintToggle || controlOrCommandDown) && !drawEnabled;
 
   const googleMapsBaseUrl = "https://www.google.com/maps?q=";
   let googleMapsLink = "";
@@ -117,6 +131,7 @@
 
   let mapMouseDownHandler: ((event: maplibregl.MapMouseEvent) => void) | null = null;
   let mapMouseMoveHandler: ((event: maplibregl.MapMouseEvent) => void) | null = null;
+  let mapMouseUpHandler: ((event: maplibregl.MapMouseEvent) => void) | null = null;
 
   function handleWindowPointerMove(event: PointerEvent): void {
     if (activeDividerPointerId === null || event.pointerId !== activeDividerPointerId) {
@@ -151,6 +166,10 @@
     if (shiftDown) {
       shiftDown = false;
       drawingController.setShiftDown(false, map);
+    }
+    if (controlOrCommandDown) {
+      controlOrCommandDown = false;
+      paintController.setModifierEnabled(false, map);
     }
   }
 
@@ -194,11 +213,17 @@
       window.removeEventListener("keyup", handleWindowKeyup);
       window.removeEventListener("blur", handleWindowBlur);
       elevationPlotManager?.destroy();
+      if (map) {
+        paintController.reset(map);
+      }
       if (map && mapMouseDownHandler) {
         map.off("mousedown", mapMouseDownHandler);
       }
       if (map && mapMouseMoveHandler) {
         map.off("mousemove", mapMouseMoveHandler);
+      }
+      if (map && mapMouseUpHandler) {
+        map.off("mouseup", mapMouseUpHandler);
       }
     };
   });
@@ -212,6 +237,10 @@
       shiftDown = true;
       drawingController.setShiftDown(true, map);
     }
+    if ((event.key === "Control" || event.key === "Meta") && !controlOrCommandDown) {
+      controlOrCommandDown = true;
+      paintController.setModifierEnabled(true, map);
+    }
   }
 
   /**
@@ -223,11 +252,11 @@
       shiftDown = false;
       drawingController.setShiftDown(false, map);
     }
+    if ((event.key === "Control" || event.key === "Meta") && controlOrCommandDown) {
+      controlOrCommandDown = false;
+      paintController.setModifierEnabled(false, map);
+    }
   }
-
-  /**
-   * Reset temporary drawing state when the window loses focus.
-   */
 
   /**
    * Sync draw-mode checkbox state with the controller.
@@ -240,12 +269,26 @@
   }
 
   /**
+   * Sync paint-mode checkbox state with the controller.
+   * @param event Change event from the paint toggle checkbox.
+   */
+  function handlePaintToggleChange(event: Event): void {
+    const target = event.currentTarget as HTMLInputElement;
+    userPaintToggle = target.checked;
+    paintController.setUserToggle(userPaintToggle, map);
+  }
+
+  /**
    * Initialise MapLibre specific listeners and layer state once the map loads.
    * @param loadedMap MapLibre instance provided by the component.
    */
   function handleMapLoad(loadedMap: maplibregl.Map): void {
     map = loadedMap;
     map.boxZoom.disable();
+    map.dragRotate.disable();
+    map.touchZoomRotate.disableRotation();
+    map.setPitch(0);
+    map.setBearing(0);
 
     highResAvailability = getAvailableHighResLayers(map.getZoom());
     if (baseLayer !== "basic" && !highResAvailability[baseLayer]) {
@@ -253,11 +296,21 @@
     }
     parcelZoomMessageVisible = map.getZoom() < 14;
 
-    mapMouseDownHandler = (event) => drawingController.handleMouseDown(map!, event);
-    mapMouseMoveHandler = (event) => drawingController.handleMouseMove(map!, event);
+    mapMouseDownHandler = (event) => {
+      drawingController.handleMouseDown(map!, event);
+      paintController.handleMouseDown(map!, event);
+    };
+    mapMouseMoveHandler = (event) => {
+      drawingController.handleMouseMove(map!, event);
+      paintController.handleMouseMove(map!, event);
+    };
+    mapMouseUpHandler = () => {
+      paintController.handleMouseUp(map!);
+    };
 
     map.on("mousedown", mapMouseDownHandler);
     map.on("mousemove", mapMouseMoveHandler);
+    map.on("mouseup", mapMouseUpHandler);
 
     applyCurrentLayerState();
   }
@@ -443,6 +496,16 @@
     drawingController.setShiftDown(shiftDown, map);
   }
 
+  $: paintController.setLineDrawingActive(drawEnabled);
+
+  $: if (map) {
+    paintController.setUserToggle(userPaintToggle, map);
+  }
+
+  $: if (map) {
+    paintController.setModifierEnabled(controlOrCommandDown, map);
+  }
+
   $: zoomInMessageVisible = !Object.values(highResAvailability).every(
     (available) => available,
   );
@@ -481,7 +544,7 @@
   <div class="right-half" style={`width: ${rightPaneWidth}px;`}>
     <div style="text-align: right; margin-bottom: -5px;">
       <a href="https://oaec.org/" target="_blank"><img src="oaec-logo.png" width="150" style="display: inline-block; margin-right: 15px;"></a>
-      <a href="https://datascience.uchicago.edu/" target="_blank"><img src="built-by-dsi.png" width="150" style="display: inline-block;"></a>
+      <a href="https://datascience.uchicago.edu/" target="_blank"><img src="built-by-dsi.png" width="150" style="display: inline-block; vertical-align: top;"></a>
     </div>
     <div>
       <div class="group">
@@ -693,8 +756,14 @@
       <div class="group">
         <h1>Volume of erosion</h1>
         <div>
-          <label for="paint-toggle">
-            <input id="paint-toggle" type="checkbox" />
+          <label for="paint-toggle" class:disabled={drawEnabled}>
+            <input
+              id="paint-toggle"
+              type="checkbox"
+              checked={paintEnabled}
+              on:change={handlePaintToggleChange}
+              disabled={drawEnabled}
+            />
             Paint region instead of moving map
           </label>
         </div>

@@ -247,6 +247,18 @@ export class DrawingController {
   getPoints(): Coordinate[] {
     return [...this.drawPoints];
   }
+
+  /**
+   * Clear any drawn overlay without altering external toggle state.
+   * @param map Map instance used to propagate source updates.
+   */
+  clearOverlay(map: MapLibreMap | null): void {
+    this.drawState = "idle";
+    this.drawPoints = [];
+    if (map) {
+      this.updateSources(map);
+    }
+  }
 }
 
 /**
