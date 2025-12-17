@@ -56,6 +56,7 @@
   let lineTooLongBanner: HTMLDivElement | null = null;
   let elevationSection: HTMLDivElement | null = null;
   let volumeSection: HTMLDivElement | null = null;
+  let erosionSection: HTMLHeadingElement | null = null;
   let dividerElement: HTMLDivElement | null = null;
   let paintedAreaElement: HTMLDivElement | null = null;
   let paintedVolumeElement: HTMLDivElement | null = null;
@@ -103,7 +104,7 @@
       elevationPlotManager?.hideAll();
       elevationPlotManager?.setLineTooLong(false);
       highlightDrawPoint(mapInstance, null);
-      volumeSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+      erosionSection?.scrollIntoView({ behavior: "smooth", block: "start" });
     },
     onPaintAreaChange: (areaMeters) => {
       setPaintedArea(areaMeters);
@@ -816,7 +817,7 @@
         </div>
       </div>
       <div class="group">
-        <h1>Erosion</h1>
+        <h1 bind:this={erosionSection}>Erosion</h1>
         <div>
           <label>
             <input type="checkbox" bind:checked={showElevationContours} />
