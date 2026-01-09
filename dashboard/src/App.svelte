@@ -840,7 +840,7 @@
               <circle cx="12" cy="12" r="5" stroke="#ff9100" stroke-width="2" fill="none"/>
             </svg>
           </span>
-          deposition with contour lines every 1/3 meter)
+          deposition, contour line every 1/3 meter)
         </div>
         <div class="indent">
           <label>
