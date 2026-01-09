@@ -817,6 +817,9 @@
       </div>
       <div class="group">
         <h1 bind:this={erosionSection}>Erosion</h1>
+        <div style="margin-bottom: 16px; font-size: 0.75em;">
+          <b>Disclaimer:</b> In all of the following, "erosion" and "deposition" are a simple difference of 2013 and 2022 Digital Terrain Models (DTMs), with "erosion" meaning the elevation is <span style="font-style: italic;">lower</span> in 2022. Differences in dense underbrush can mimic changes in elevation, confounding this measure of erosion, so it should be taken as an indication of where erosion <span style="font-style: italic;">may have</span> occurred. Follow up with ground-truth!
+        </div>
         <div>
           <label>
             <input type="checkbox" bind:checked={showElevationContours} />
@@ -824,8 +827,7 @@
           </label>
         </div>
         <div class="indent">
-          (1/3 meter spacing,
-          <span style="vertical-align: 0.1em; display: inline-block; width: 1em; height: 1em;">
+          (<span style="vertical-align: 0.1em; display: inline-block; width: 1em; height: 1em;">
             <svg width="1em" height="1em" viewBox="0 0 24 24" style="display: inline; vertical-align: middle;" xmlns="http://www.w3.org/2000/svg">
               <circle cx="12" cy="12" r="10" stroke="#9d3bff" stroke-width="2" fill="none"/>
               <circle cx="12" cy="12" r="5" stroke="#9d3bff" stroke-width="2" fill="none"/>
@@ -838,7 +840,7 @@
               <circle cx="12" cy="12" r="5" stroke="#ff9100" stroke-width="2" fill="none"/>
             </svg>
           </span>
-          deposition)
+          deposition with a contour line every 1/3 meter, up to ±3 meters)
         </div>
         <div class="indent">
           <label>
