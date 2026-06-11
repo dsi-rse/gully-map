@@ -1,7 +1,3 @@
-# oaec-found-gully
-
-TODO: Intro text...
-
 # Data products
 
 The data presented on the web app can be accessed directly, for instance as tiles in QGIS or ArcGIS. All data products are in the UChicago DSI `gully-map` R2 bucket on CloudFlare, with world-readable permissions. Most of them have been formatted as PMTiles (raster or vector) so that they can be accessed remotely without downloading them.
