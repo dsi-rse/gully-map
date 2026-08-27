@@ -1,0 +1,328 @@
+{
+  "settings": {
+    "threshold": 0.01,
+    "sharpen": -3,
+    "features": [
+      "min15",
+      "low15 - min15",
+      "high15 - low15",
+      "min5 - min15",
+      "high5 - low5",
+      "low15 * (high15 - low15)",
+      "abs(mindisk)"
+    ],
+    "watersheds": [
+      "Big Pepperwood Creek",
+      "Dutch Bill Creek",
+      "Flat Ridge Creek Buckeye",
+      "Kolmer Gulch",
+      "Lower Dry Creek Lower",
+      "Lower Dry Creek",
+      "Lower Salmon Creek",
+      "Tombs Creek",
+      "Upper Big Sulphur Creek"
+    ],
+    "total_rows": 94797353,
+    "total_positive": 4420268,
+    "note": "Threshold applied to pass1, not the production pass2 image; reconvolution requires CuPy/numba.cuda. Truth is the sharpened label (hand-drawn AND min15 < -3), identical to the training label."
+  },
+  "reproduction": {
+    "terms": [
+      {
+        "term": "(intercept)",
+        "refitted": -9.80005156500103,
+        "published": -9.800051565013556,
+        "abs_diff": 1.2525092074611166e-11
+      },
+      {
+        "term": "min15",
+        "refitted": -3.163932480616257,
+        "published": -3.1639324806178912,
+        "abs_diff": 1.6342482922482304e-12
+      },
+      {
+        "term": "low15 - min15",
+        "refitted": -0.7209343186431969,
+        "published": -0.7209343186388889,
+        "abs_diff": 4.307998402452995e-12
+      },
+      {
+        "term": "high15 - low15",
+        "refitted": 1.9421691573017303,
+        "published": 1.9421691573124356,
+        "abs_diff": 1.070521449264561e-11
+      },
+      {
+        "term": "min5 - min15",
+        "refitted": 0.195313102615368,
+        "published": 0.19531310261020537,
+        "abs_diff": 5.162620331233825e-12
+      },
+      {
+        "term": "high5 - low5",
+        "refitted": -0.27079812299122447,
+        "published": -0.2707981230014441,
+        "abs_diff": 1.0219658452825797e-11
+      },
+      {
+        "term": "low15 * (high15 - low15)",
+        "refitted": 0.6326805610631525,
+        "published": 0.6326805610644737,
+        "abs_diff": 1.3211653993039363e-12
+      },
+      {
+        "term": "abs(mindisk)",
+        "refitted": -0.28814988058809,
+        "published": -0.28814988058815305,
+        "abs_diff": 6.306066779870889e-14
+      }
+    ],
+    "max_abs_diff": 1.2525092074611166e-11,
+    "reproduced": true,
+    "seconds": 67.56825113296509,
+    "converged": true,
+    "iterations": 11
+  },
+  "folds": [
+    {
+      "watershed": "Big Pepperwood Creek",
+      "index": 0,
+      "rows": 12511765,
+      "positive": 740464,
+      "coefficients": [
+        -10.18861408010612,
+        -3.372091350299664,
+        -0.7744374699823258,
+        1.957112883237286,
+        0.29456219968492325,
+        -0.4229501350189449,
+        0.6317827926073457,
+        -0.3601962645683623
+      ],
+      "seconds": 67.4375069141388,
+      "converged": true,
+      "iterations": 12,
+      "true_positive": 740401,
+      "false_positive": 1184565,
+      "false_negative": 63,
+      "recall": 0.9999149182134446,
+      "precision": 0.38463068958101077,
+      "auc": 0.9846724728144007
+    },
+    {
+      "watershed": "Dutch Bill Creek",
+      "index": 1,
+      "rows": 11780873,
+      "positive": 518668,
+      "coefficients": [
+        -9.724370283678875,
+        -3.152727426205688,
+        -0.5647491056632102,
+        1.9046471986820428,
+        0.16964003189573795,
+        -0.28171095502583304,
+        0.6196107284638765,
+        -0.3001366081332661
+      ],
+      "seconds": 66.5564820766449,
+      "converged": true,
+      "iterations": 11,
+      "true_positive": 518668,
+      "false_positive": 957641,
+      "false_negative": 0,
+      "recall": 1.0,
+      "precision": 0.35132753373446884,
+      "auc": 0.9934292450643432
+    },
+    {
+      "watershed": "Flat Ridge Creek Buckeye",
+      "index": 2,
+      "rows": 4789857,
+      "positive": 498991,
+      "coefficients": [
+        -9.579005626570469,
+        -3.0767406284393437,
+        -0.731031870579778,
+        1.9012211760354116,
+        0.1693901575407496,
+        -0.2889467808621761,
+        0.6180322684303846,
+        -0.2889474401533332
+      ],
+      "seconds": 67.31409621238708,
+      "converged": true,
+      "iterations": 11,
+      "true_positive": 498947,
+      "false_positive": 476109,
+      "false_negative": 44,
+      "recall": 0.9999118220569109,
+      "precision": 0.5117111222329794,
+      "auc": 0.9971775127684118
+    },
+    {
+      "watershed": "Kolmer Gulch",
+      "index": 3,
+      "rows": 9147292,
+      "positive": 418358,
+      "coefficients": [
+        -9.991420188666032,
+        -3.221645821951075,
+        -0.607313261800402,
+        2.066100858524531,
+        0.07509629088002469,
+        -0.3235465650150769,
+        0.6710395583321441,
+        -0.26615349061236754
+      ],
+      "seconds": 66.01216888427734,
+      "converged": true,
+      "iterations": 11,
+      "true_positive": 417405,
+      "false_positive": 1055300,
+      "false_negative": 953,
+      "recall": 0.9977220466681646,
+      "precision": 0.28342743455070774,
+      "auc": 0.9900987026564471
+    },
+    {
+      "watershed": "Lower Dry Creek Lower",
+      "index": 4,
+      "rows": 29470957,
+      "positive": 536717,
+      "coefficients": [
+        -9.386989228998319,
+        -3.0181313852093674,
+        -0.7204339579926934,
+        1.767808011091118,
+        0.22986088590217818,
+        -0.15856479269779783,
+        0.5902749002851729,
+        -0.2829923783017629
+      ],
+      "seconds": 51.39568018913269,
+      "converged": true,
+      "iterations": 11,
+      "true_positive": 536717,
+      "false_positive": 752655,
+      "false_negative": 0,
+      "recall": 1.0,
+      "precision": 0.41626233546253527,
+      "auc": 0.9993545966652174
+    },
+    {
+      "watershed": "Lower Dry Creek",
+      "index": 5,
+      "rows": 4204404,
+      "positive": 268641,
+      "coefficients": [
+        -9.624431753666151,
+        -3.097250841790595,
+        -0.6899627525372469,
+        1.8987777745216692,
+        0.1890675028874456,
+        -0.2763326486820279,
+        0.6183016595093919,
+        -0.2856552642457049
+      ],
+      "seconds": 72.35952091217041,
+      "converged": true,
+      "iterations": 11,
+      "true_positive": 268641,
+      "false_positive": 367664,
+      "false_negative": 0,
+      "recall": 1.0,
+      "precision": 0.4221890445619632,
+      "auc": 0.9982788467098564
+    },
+    {
+      "watershed": "Lower Salmon Creek",
+      "index": 6,
+      "rows": 11817433,
+      "positive": 249429,
+      "coefficients": [
+        -11.260574831048638,
+        -3.551485618030275,
+        -1.4341996545935587,
+        2.5938120512092357,
+        0.31094726081982443,
+        -0.05198829663514627,
+        0.7964226511916388,
+        -0.22763370237765043
+      ],
+      "seconds": 69.30488610267639,
+      "converged": true,
+      "iterations": 12,
+      "true_positive": 249387,
+      "false_positive": 1309805,
+      "false_negative": 42,
+      "recall": 0.9998316154095955,
+      "precision": 0.15994630552234748,
+      "auc": 0.9863304406175664
+    },
+    {
+      "watershed": "Tombs Creek",
+      "index": 7,
+      "rows": 3995525,
+      "positive": 421446,
+      "coefficients": [
+        -9.623395707784637,
+        -3.09570636268887,
+        -0.7027315172680678,
+        1.8963247038720776,
+        0.1906975274546195,
+        -0.28351583895756927,
+        0.6200725617630024,
+        -0.28845472496346325
+      ],
+      "seconds": 72.94966197013855,
+      "converged": true,
+      "iterations": 11,
+      "true_positive": 421446,
+      "false_positive": 357151,
+      "false_negative": 0,
+      "recall": 1.0,
+      "precision": 0.5412890108746887,
+      "auc": 0.9977314319270867
+    },
+    {
+      "watershed": "Upper Big Sulphur Creek",
+      "index": 8,
+      "rows": 7079247,
+      "positive": 767554,
+      "coefficients": [
+        -9.586250042779806,
+        -3.0975134042097427,
+        -0.5827933010800792,
+        1.8086169553981026,
+        0.2317954568346698,
+        -0.18455854994954787,
+        0.6040251308652282,
+        -0.29765591252332185
+      ],
+      "seconds": 68.10057497024536,
+      "converged": true,
+      "iterations": 11,
+      "true_positive": 767554,
+      "false_positive": 1039304,
+      "false_negative": 0,
+      "recall": 1.0,
+      "precision": 0.42480039936729946,
+      "auc": 0.9865168006590761
+    }
+  ],
+  "pooled": {
+    "micro_average": {
+      "true_positive": 4419166,
+      "false_positive": 7500194,
+      "false_negative": 1102,
+      "recall": 0.9997506938493322,
+      "precision": 0.37075530900987974,
+      "auc": 0.9927906265760941
+    },
+    "mean_of_folds": {
+      "recall": 0.9997089335942351,
+      "precision": 0.3883982084320001,
+      "auc": 0.9926211166536008
+    }
+  }
+}
